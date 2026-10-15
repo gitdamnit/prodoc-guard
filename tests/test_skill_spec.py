@@ -218,6 +218,131 @@ class TemplateContractTests(unittest.TestCase):
             self.assertIn(key, block)
 
 
+class VendorNeutralityTests(unittest.TestCase):
+    """The core must not depend on any AI vendor, and must be auditable as such."""
+
+    #: modules the shipped scripts are allowed to import
+    STDLIB_ALLOWLIST = {
+        "__future__",
+        "argparse",
+        "datetime",
+        "hashlib",
+        "importlib",
+        "json",
+        "os",
+        "pathlib",
+        "re",
+        "shutil",
+        "stat",
+        "subprocess",
+        "sys",
+        "tempfile",
+        "yaml",  # optional: only imported inside try/except for frontmatter parsing
+    }
+
+    REQUIRED_CLIENTS = (
+        "opencode",
+        "codex",
+        "claude code",
+        "cursor",
+        "github copilot",
+        "gemini cli",
+        "chatgpt",
+    )
+    STATES = ("verified", "unverified", "unsupported", "planned")
+
+    #: other projects this repository must stay independent from
+    OTHER_PROJECTS = (
+        "Bludit Wizard",
+        "TRAVIS",
+        "Stranger Danger",
+        "Git That Shit",
+        "Checkpoint Orchestrator",
+    )
+
+    def test_shipped_scripts_import_standard_library_only(self):
+        import ast
+
+        offenders = {}
+        for path in (REPO_ROOT / "scripts" / "prodoc", REPO_ROOT / "scripts" / "check_skill.py"):
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            modules = set()
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    modules.update(alias.name.split(".")[0] for alias in node.names)
+                elif isinstance(node, ast.ImportFrom) and node.module:
+                    modules.add(node.module.split(".")[0])
+            extra = modules - self.STDLIB_ALLOWLIST
+            if extra:
+                offenders[path.name] = sorted(extra)
+        self.assertEqual(offenders, {}, "non-stdlib imports in shipped scripts: %s" % offenders)
+
+    def test_shipped_scripts_use_no_network_modules(self):
+        forbidden = ("socket", "urllib", "http", "requests", "httpx", "aiohttp", "ftplib", "smtplib", "ssl")
+        for path in (REPO_ROOT / "scripts" / "prodoc", REPO_ROOT / "scripts" / "check_skill.py"):
+            text = path.read_text(encoding="utf-8")
+            for module in forbidden:
+                self.assertNotIn("import %s" % module, text, "%s imports %s" % (path.name, module))
+
+    def test_skill_md_uses_no_vendor_namespaced_metadata(self):
+        text = SKILL_MD.read_text(encoding="utf-8")
+        for namespace in ("opencode/", "claude/", "cursor/", "copilot/", "gemini/", "openai/"):
+            self.assertNotIn(namespace, text, "vendor-namespaced key %r in the portable SKILL.md" % namespace)
+
+    def test_skill_md_declares_vendor_neutrality(self):
+        lowered = SKILL_MD.read_text(encoding="utf-8").lower()
+        self.assertIn("vendor-neutral", lowered)
+        self.assertIn("no vendor sdk", lowered)
+
+    def test_compatibility_matrix_covers_the_required_clients(self):
+        text = (REPO_ROOT / "docs" / "COMPATIBILITY.md").read_text(encoding="utf-8").lower()
+        for client in self.REQUIRED_CLIENTS:
+            self.assertIn(client, text, "compatibility matrix does not mention %s" % client)
+
+    def test_compatibility_matrix_uses_four_states(self):
+        text = (REPO_ROOT / "docs" / "COMPATIBILITY.md").read_text(encoding="utf-8")
+        for state in self.STATES:
+            self.assertIn("**%s**" % state.capitalize(), text, "status label %r missing" % state)
+
+    def test_portable_install_path_is_documented(self):
+        for relative in ("README.md", "docs/COMPATIBILITY.md"):
+            text = (REPO_ROOT / relative).read_text(encoding="utf-8")
+            self.assertIn(".agents/skills", text, "%s does not document the portable path" % relative)
+
+    def test_other_projects_appear_only_in_exclusion_statements(self):
+        """Independence from unrelated projects, enforced by where the names may appear."""
+        import re
+
+        pattern = re.compile("|".join(re.escape(name) for name in self.OTHER_PROJECTS), re.IGNORECASE)
+        negation = re.compile(r"\b(not|never|no|independent|exclud|unrelated)\b", re.IGNORECASE)
+
+        # code must not mention them at all
+        for path in sorted((REPO_ROOT / "scripts").iterdir()):
+            if path.is_file():
+                self.assertIsNone(
+                    pattern.search(path.read_text(encoding="utf-8")),
+                    "%s references another project" % path.name,
+                )
+        # documents may mention them only inside an exclusion statement
+        # (the sentence may wrap, so inspect a window of characters around each hit)
+        for name in ("SKILL.md", "README.md", "PRODUCT_REQUIREMENTS.md", "PROJECT_STATUS.md", "DECISION_LOG.md"):
+            text = (REPO_ROOT / name).read_text(encoding="utf-8")
+            for match in pattern.finditer(text):
+                window = text[max(0, match.start() - 220) : match.end() + 220]
+                self.assertIsNotNone(
+                    negation.search(window),
+                    "%s mentions another project without excluding it: %r"
+                    % (name, window.strip()[:120]),
+                )
+
+    def test_optional_adapters_are_documented_not_vendored(self):
+        text = (REPO_ROOT / "docs" / "COMPATIBILITY.md").read_text(encoding="utf-8")
+        self.assertIn("Optional local adapters", text)
+        self.assertIn("opencode/slash", text)
+        # and the OpenCode metadata field is described as a local copy edit
+        self.assertIn("your local copy", text)
+
+
 class RepositoryDocumentationTests(unittest.TestCase):
     """Publication-readiness checks that do not need a Git repository."""
 

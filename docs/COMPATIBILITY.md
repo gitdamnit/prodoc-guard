@@ -1,112 +1,193 @@
 # Compatibility
 
-What is verified, what is documented by the vendor but not verified here, and
-what is unknown. Research date: **2026-10-15**.
+ProDoc Guard is built to be **platform-agnostic and vendor-neutral**. The core is
+two things that no vendor owns:
 
-Sources consulted:
+1. A `SKILL.md` written to the open [Agent Skills specification](https://agentskills.io/specification).
+2. `scripts/prodoc`, a standalone CLI with no model, no API key, and no
+   vendor SDK.
 
-- Agent Skills specification — <https://agentskills.io/specification>
-- Agent Skills client showcase — <https://agentskills.io/clients>
-- OpenAI, *Build skills* — <https://developers.openai.com/codex/skills>
-- OpenAI `skills` repository, `skill-creator` — <https://github.com/openai/skills>
-- OpenCode, *Agent Skills* — <https://opencode.ai/docs/skills/>
+Everything client-specific is limited to *where you copy the folder* and *how you
+invoke it*. There is no per-client code path, no vendored plugin, and no
+duplicated core.
 
-## Status of each environment
+Research date: **2026-10-15**. Sources are the vendors' own skill documentation,
+linked per row. Vendor behaviour changes; re-check before relying on a row.
 
-| Environment | Discovery | Invocation | Status |
-| --- | --- | --- | --- |
-| OpenCode | `.opencode/skills/`, `.claude/skills/`, `.agents/skills/`, and the global equivalents | `skill` tool; `/prodoc-guard` via `metadata.opencode/slash` | **Verified** against the documented paths and frontmatter rules |
-| OpenAI Codex (CLI, IDE) | `$CWD/.agents/skills` up to `$REPO_ROOT/.agents/skills`, `~/.agents/skills`, `/etc/codex/skills` | `$prodoc-guard`, `/skills`, or implicit match | **Verified** against the documented paths; `agents/openai.yaml` supplied for UI metadata |
-| ChatGPT desktop app | Skills created in your projects; a Skills view in the sidebar | `@` mention | **Partially documented.** Standalone skills are documented as available in the desktop app; the exact placement of an external folder is not documented, so no path is claimed here |
-| ChatGPT web (Chat, Work) | Skills bundled inside a **plugin** | Plugin installation | **Not supported for standalone skills.** Use the [plugin](https://developers.openai.com/plugins/build/plugins) route, which this project does not ship |
-| Other Agent Skills clients | `.agents/skills/<name>/SKILL.md` or the documented client path | Client-specific | **Format-compatible.** Not tested per client |
-| No client at all | — | — | The three documents and `scripts/prodoc` are useful with no agent at all |
+## What the status labels mean
 
-### Why ChatGPT is called out
-
-Installing a skill in OpenCode does **not** make it available in ChatGPT, and the
-reverse is also true. Each product has its own discovery paths and its own
-invocation mechanism. Where a mechanism is not documented by the vendor, this
-project says so rather than inventing one. Skill discovery and explicit
-activation therefore have to be documented per environment, as the tables above
-do.
-
-### Discovery is not invocation
-
-Even in an environment where a skill is discovered, the assistant may decline to
-use it: models choose skills by matching the `description` against the task. Write
-tasks that clearly involve project documentation, status, or decisions, or invoke
-the skill explicitly (`$prodoc-guard`, `/prodoc-guard`, `@`). No skill can
-guarantee activation in every conversation; the CLI exists so the checks can be
-run regardless.
-
-## Verification performed
-
-| Check | Result |
+| Label | Meaning |
 | --- | --- |
-| `scripts/check_skill.py .` on this repository | Pass — 0 errors |
-| Frontmatter fields restricted to specification-defined keys | Pass |
-| `name` matches the directory, matches `^[a-z0-9]+(-[a-z0-9]+)*$` | Pass |
-| `description` within 1024 characters and written as "what + when to use" | Pass |
-| `compatibility` within 500 characters | Pass |
-| `SKILL.md` under 500 lines, body under 5000 tokens | Pass |
-| Every bundled-file reference from `SKILL.md` resolves | Pass |
+| **Verified** | The client's current official documentation was read, its documented discovery paths and frontmatter rules are recorded below, and the single portable `SKILL.md` in this repository satisfies them — measured by `scripts/check_skill.py` (frontmatter keys, name/directory match, length limits, bundled-file references). This is a *documentation and conformance* verification. |
+| **Unverified** | The client is listed as Agent Skills compatible, or its docs describe skills, but either the documentation was not read for this release or it does not document a discovery path for an externally authored folder. Format-compatible in principle; unproven here. |
+| **Unsupported** | Known not to accept a standalone skill folder on that surface. A different distribution path is required. |
+| **Planned** | No claim today. Listed so the gap is visible rather than implied. |
 
-The official `skills-ref` validator from
-<https://github.com/agentskills/agentskills> is run by `scripts/check_skill.py`
-when it is installed. It is not a dependency, so results here do not depend on it.
+**No client was launched to test activation.** "Verified" does not mean a live
+end-to-end activation test ran in that product, because no such test was executed
+in this environment. Verified here means: the documented rules were followed and
+the artifact conforms. What *was* executed is recorded in
+[TEST_REPORT.md](TEST_REPORT.md) — the CLI, the CI path, and the specification
+conformance checks all run without any client at all.
 
-## Deliberate deviations, and why
+## Compatibility matrix
 
-### 1. `templates/` instead of `assets/`
+| Client | Status | Documented discovery paths | Invocation | What was checked |
+| --- | --- | --- | --- | --- |
+| **No agent at all** (manual, scripts, CI/CD) | **Verified** | n/a — operates on the working tree | `prodoc init\|validate\|status\|check\|update` | Exercised: 91 automated tests, all three gates green — `TEST_REPORT.md` |
+| **OpenCode** | **Verified** | `.opencode/skills/`, `.claude/skills/`, `.agents/skills/`; globals `~/.config/opencode/skills/`, `~/.claude/skills/`, `~/.agents/skills/` | `skill` tool, or `/name` when declared in `metadata` | Paths and frontmatter rules read from the OpenCode Agent Skills page; conformance measured by `check_skill.py` |
+| **OpenAI Codex** (CLI, IDE) | **Verified** | `$CWD/.agents/skills` up to `$REPO_ROOT/.agents/skills`, `~/.agents/skills`, `/etc/codex/skills` | `$prodoc-guard`, `/skills`, or implicit match | Paths read from *Build skills*; `name`/`description` requirement met; `agents/openai.yaml` supplied as an optional adapter |
+| **Claude Code** | **Verified** | `.claude/skills/` (project, nested, enterprise, `--add-dir`); `~/.claude/skills/`; plugin `<plugin>/skills/` | `/prodoc-guard` (directory or `name` sets the command) | Paths read from *Extend Claude with skills*. Claude Code accepts every frontmatter field, and requires **spec-only fields** for claude.ai upload / Skills API / `package_skill.py` packaging — this skill uses spec-only fields, so it does not hard-error there |
+| **Cursor** | **Verified** | `.agents/skills/`, `.cursor/skills/`; `~/.agents/skills/`, `~/.cursor/skills/`; also reads `.claude/skills/`, `.codex/skills/` and their user-level equivalents | `/` in Agent chat, or a Custom Mode | Paths and rules read from *Agent Skills*; `name` matches the parent folder as required |
+| **GitHub Copilot** (VS Code, CLI, app, cloud agent) | **Verified** | `.github/skills/`, `.claude/skills/`, `.agents/skills/`; `~/.copilot/skills/`, `~/.claude/skills/`, `~/.agents/skills/` | `/prodoc-guard` slash command, or automatic by description | Paths read from *Use Agent Skills in VS Code*; constraints met — `name` ≤64 chars, lowercase/digits/hyphens, matches the parent directory, no namespace prefix; `description` ≤1024 |
+| **Gemini CLI** | **Verified** | Workspace `.agents/skills/` or `.gemini/skills/`; user `~/.agents/skills/` or `~/.gemini/skills/` | `activate_skill` tool with an explicit consent prompt | Paths and the tier/precedence model read from *Agent Skills*. `.agents/skills/` is the portable alias. See the caveat below |
+| **Any other Agent Skills client** | **Unverified** | Client-specific; most support `.agents/skills/<name>/SKILL.md` | Client-specific | The format is standard and the skill conforms, but no per-client rule was read. Clients listed on the ecosystem showcase but untested here include Junie, Goose, Amp, Letta, OpenHands, Mux, Roo Code, Factory, Kiro, TRAE, Snowflake Cortex Code, and others |
+| **ChatGPT desktop app** | **Unverified** | Not documented for externally authored folders | `@` mention | The app has a Skills view for skills created in your projects, but its documentation does not state where an external skill folder is placed, so no path is claimed |
+| **ChatGPT web** (Chat, Work) | **Unsupported** | Plugin-bundled skills only | Plugin installation | Standalone skill folders are not an installable unit there. See below |
+| **Antigravity CLI** (Gemini CLI successor) | **Unverified** | Not documented in the sources read | Unknown | Gemini CLI documentation states it was replaced by Antigravity CLI for unpaid and Google One users on 2026-06-18 |
+| **Plugin / marketplace packaging** (Cursor marketplace, ChatGPT plugins) | **Planned** | n/a | n/a | Cursor documents that repository-based skill distribution goes through a plugin with `.cursor-plugin/marketplace.json`; ChatGPT web requires a plugin. This project is not packaged as a plugin, by choice — see *Deliberate non-goals* |
+| **Live activation verification per client** | **Planned** | n/a | n/a | Recording a real activation run per client, and publishing it in this file, is follow-up work |
+| **Windows** | **Planned** | n/a | n/a | The CLI uses `os.replace` and no POSIX-only process behaviour, but the suite has only been run on Linux |
 
-The specification recommends `assets/` for templates and explicitly allows
-"any additional files or directories". This project bundles the three document
-skeletons in a top-level `templates/` directory because they are file content to
-be copied, not documentation to be read into context alongside `references/`.
-Recorded as `D-0007` in `DECISION_LOG.md`.
+## The portable install path
 
-### 2. Optional frontmatter fields are used
+Five of the six verified clients read `.agents/skills/`. That makes it the
+practical, vendor-neutral default:
 
-Codex's skill-authoring guidance says to include only `name` and `description`.
-The Agent Skills specification defines `license`, `compatibility` and `metadata`
-as well, and OpenCode reads product-specific behaviour from `metadata`
-(`opencode/slash`). This project uses the specification-defined fields and no
-custom top-level keys, so strict clients ignore what they do not need. Recorded as
-`D-0008`.
+```
+<project>/.agents/skills/prodoc-guard/SKILL.md     # shared with the team, via Git
+~/.agents/skills/prodoc-guard/SKILL.md             # available in all your projects
+```
 
-### 3. The repository root is also the skill directory
+The directory **must** be named `prodoc-guard`. Every client listed above requires
+`name` to match the parent directory name, and several fail silently when it does
+not. `scripts/check_skill.py` enforces it.
 
-The skill directory must be named after the skill, so the repository root *is*
-`prodoc-guard/` and holds `SKILL.md`. Codex's guidance recommends against extra
-files such as a `README.md` inside a skill folder. A public, installable project
-needs a README, a licence, tests and CI, so this repository keeps them and
-accepts the extra files. Only `SKILL.md` and the files it references are loaded
-into an agent's context, so the practical cost is zero.
+Where a client also reads its own path, prefer the portable one unless you need
+the client-specific behaviour:
 
-### 4. `allowed-tools` is not declared
+| Client | Portable path works? | Client-specific alternative it also reads |
+| --- | --- | --- |
+| OpenCode | yes | `.opencode/skills/`, `~/.config/opencode/skills/` |
+| Codex | yes | `/etc/codex/skills` (admin), bundled system skills |
+| Claude Code | yes (`.claude/skills/` is its native path) | `.claude/skills/`, `~/.claude/skills/`, enterprise and plugin locations |
+| Cursor | yes | `.cursor/skills/`, `~/.cursor/skills/` |
+| GitHub Copilot | yes | `.github/skills/`, `~/.copilot/skills/` |
+| Gemini CLI | yes | `.gemini/skills/`, `~/.gemini/skills/` |
 
-The field is marked experimental, and support varies between clients. Declaring
-it could restrict an assistant in ways that differ per product, so it is omitted
-rather than guessed. Recorded as `D-0008`.
+`.agents/skills/` is also how Claude Code, Cursor, and Copilot *interoperate*
+with each other's folders, so a single copy can serve several products at once.
+
+## Vendor extensions we deliberately do not use
+
+Every client above accepts the specification's fields and then adds its own. The
+portable `SKILL.md` uses **only** specification-defined fields — `name`,
+`description`, `license`, `compatibility`, `metadata` — and therefore loads
+everywhere without per-client branches.
+
+| Client | Extra frontmatter fields available | Why we do not use them |
+| --- | --- | --- |
+| Claude Code | `disable-model-invocation`, `user-invocable`, `argument-hint`, `arguments`, `model`, `effort`, `context`, `agent`, `background`, `hooks`, `paths`, `shell`, `when_to_use`, `disallowed-tools` | Claude Code hard-errors if a non-spec field is present when packaging for claude.ai or the Skills API. Using one field would break that path for every user |
+| Cursor | `paths`, `disable-model-invocation`, `icon`, `color` | Cursor-only presentation and scoping; `icon`/`color` are meaningless elsewhere |
+| GitHub Copilot | `argument-hint`, `user-invocable`, `disable-model-invocation`, `context` | Copilot-specific invocation control; the default behaviour (auto-load plus slash command) is what this skill wants |
+| Gemini CLI | none documented beyond the standard | — |
+| OpenCode | `metadata["opencode/slash"]`, `metadata["opencode/autoinvoke"]` | Namespaced vendor keys in the portable file. If you want the OpenCode `/prodoc-guard` command, add one line to your local copy: `metadata: { opencode/slash: "true" }`. That is the whole adapter — see *Optional local adapters* |
+
+This is the substance of "adapters only where necessary": the adapter is a line in
+your local copy or a path you copy the folder to, never a fork of the skill.
+
+## Optional local adapters
+
+None of these are required, and none change the portable artifact.
+
+| Adapter | Do this | Gains |
+| --- | --- | --- |
+| OpenCode slash command | add `opencode/slash: "true"` under `metadata` in your installed copy | `/prodoc-guard` in the TUI |
+| Codex UI metadata | keep `agents/openai.yaml` (already shipped) | Display name, short description, default prompt in the skills list |
+| Cursor Custom Mode | invoke the skill and press Option/Alt+Enter | Keeps the skill active for a whole session |
+| Gemini CLI install | `gemini skills install <repo-url> --path . --consent` | Installs into the workspace or user tier, with consent acknowledged |
+| Copilot-only scoping | add `paths:` to your copy if you want file-scoped surfacing | Not used here: this skill applies to any file in a project |
+| Any CI system | run `python3 scripts/prodoc check` | No adapter needed; see below |
+
+## Manual and CI/CD execution
+
+The core does not need an agent, a client, or a model. This is the deployment
+route that works everywhere and is the one this repository tests end to end.
+
+```bash
+# any machine with Git and Python 3.8+
+python3 scripts/prodoc validate --json
+python3 scripts/prodoc check --json      # exit 1 on inconsistency, missing evidence, secrets
+python3 scripts/prodoc status
+python3 scripts/prodoc update --phase "In Progress"
+```
+
+| Context | How | Notes |
+| --- | --- | --- |
+| Manual, before committing | run `validate` and `check` by hand | Exit codes are stable: 0 ok, 1 errors, 2 usage, 3 environment, 4 unsafe state |
+| GitHub Actions | `uses: gitdamnit/prodoc-guard/.github/actions/prodoc-check@main` | Composite action, `contents: read`, never commits |
+| Any other CI (GitLab, Jenkins, CircleCI, Buildkite, …) | run the `python3 scripts/prodoc check` line above | No plugin, no service, no network |
+| Git hook | call `check` from `pre-commit` | Optional; keep it non-`--force` so it can only block, never write |
+| Release gate | `docs/RELEASE_CHECKLIST.md` | Human checklist plus the same commands |
+
+The CLI never commits, pushes, changes branches, or opens sockets, so wiring it
+into CI cannot mutate a repository.
+
+## ChatGPT, as a separate integration question
+
+ChatGPT is **not** treated as an Agent Skills host for this project, and the core
+does not depend on it.
+
+| Surface | Position |
+| --- | --- |
+| ChatGPT web (Chat, Work) | **Unsupported** for a standalone skill folder. Skills there arrive bundled inside a plugin. Packaging into a plugin is *Planned*, not done |
+| ChatGPT desktop app | **Unverified**. A Skills view exists for skills created in your projects; the documentation read did not specify a location for an externally authored folder |
+| Codex (CLI, IDE, ChatGPT desktop) | **Verified** as described above. Codex is a separate product from ChatGPT's chat surfaces and has its own documented skill locations |
+
+If a ChatGPT route matters to you, treat it as a new integration with its own
+packaging and review, not as a capability this skill already has.
+
+## Activation is not guaranteed, anywhere
+
+No client promises that a skill will be used. GitHub Copilot's own documentation
+puts it plainly: discovery "makes skills available to the model but does not
+guarantee that it invokes a skill for every relevant prompt". Gemini CLI requires
+an explicit consent prompt before a skill activates. Codex and OpenCode choose by
+matching the `description`.
+
+Therefore:
+
+- This project never claims automatic activation in any environment.
+- Invoke explicitly when it matters: `/prodoc-guard` (Claude Code, Cursor,
+  Copilot, OpenCode with the adapter), `$prodoc-guard` (Codex), `@` (ChatGPT
+  desktop).
+- Run the checks yourself when they must run: `python3 scripts/prodoc check`.
+  CI is the only activation guarantee, because CI runs commands, not judgements.
+
+## Deliberate non-goals
+
+- **No vendor plugins or marketplace packages.** No `.cursor-plugin/`, no ChatGPT
+  plugin manifest, no Claude Code plugin wrapper. They would add per-vendor
+  release surfaces for the same files.
+- **No vendor SDKs or API calls.** The core is Git plus the standard library.
+- **No vendor frontmatter.** One portable `SKILL.md`.
+- **No per-client forks.** A client that needs an adapter gets an install
+  instruction, not a copy of the implementation.
+- **No databases, hosted services, or accounts.** Same reason: nothing to vendor.
 
 ## Known limitations
 
-- **No client can guarantee the skill is used.** Activation depends on the
-  description matching the task, or on explicit invocation.
-- **The CLI needs Python 3.8+ and Git.** Without Git, `status` and `check` lose
-  history-dependent results and say so explicitly.
-- **The secret scan covers the three canonical documents only.** It is a safety
-  net, not a secret scanner for a repository.
-- **Structure is checked, not meaning.** A document can pass every check and still
-  describe the wrong system. Evidence citations narrow the gap; they do not close
-  it.
-- **Windows** is supported by the CLI, which uses `os.replace` and no POSIX-only
-  process behaviour, but the test suite has been run on Linux only. Treat Windows
-  as unverified until a run is published in `docs/TEST_REPORT.md`.
+- **Structure is checked, not meaning.** Documents can pass every check and still
+  describe the wrong system.
+- **The secret scan covers the three canonical documents only.**
+- **Windows** is implemented but `Not run`; treat it as unverified.
+- **`.agents/skills/` is a convention, not a standard path.** It is supported by
+  the clients above today; the specification itself does not mandate a location.
+- **Vendor documentation moves.** Re-read the linked page before installing if
+  behaviour matters. This file records what was true on 2026-10-15.
 
 ## Reporting a compatibility problem
 
-Open an issue with the product and version, the exact install path you used, the
-command or prompt you ran, and what happened. A failing case is worth more than a
+Open an issue with the client and version, the exact path you installed to, the
+command or prompt you used, and what happened. A failing case is worth more than a
 passing one.

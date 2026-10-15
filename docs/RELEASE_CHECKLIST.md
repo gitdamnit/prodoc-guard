@@ -50,10 +50,14 @@ State legend: `[ ]` not done, `[x]` done, `[~]` not applicable yet.
 ## 5. Compatibility
 
 - [ ] `docs/COMPATIBILITY.md` matches the vendor documentation it cites, and
-      every claim is labelled verified, documented, or unknown.
+      every claim is labelled verified, unverified, unsupported, or planned.
+- [ ] No row claims live activation testing that did not happen.
+- [ ] The portable `SKILL.md` contains no vendor-namespaced frontmatter keys.
+- [ ] The shipped scripts import only the standard library.
 - [ ] Installation instructions were followed from a clean clone, in a scratch
       directory, for each supported environment.
 - [ ] Platform limitations (for example: not yet tested on Windows) are stated.
+- [ ] No document claims guaranteed automatic activation in any product.
 
 ## 6. Packaging
 

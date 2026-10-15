@@ -2,11 +2,10 @@
 name: prodoc-guard
 description: Maintain authoritative, verifiable project documentation in Git across AI-assisted sessions. Use when starting or resuming substantial work in a repository, when project context or earlier decisions seem lost, when the user asks what is done/tested/deployed, or before reporting progress, committing, or releasing. Keeps three canonical documents (PRODUCT_REQUIREMENTS.md, DECISION_LOG.md, PROJECT_STATUS.md) present, consistent, and honest, so requirements, decisions, and status live in the repository instead of in conversation history. Triggers include "update the project docs", "what's the status", "record this decision", "where were we", "document this", the prodoc-guard skill, the prodoc CLI, and any claim that work is complete, tested, or shipped.
 license: MIT
-compatibility: Requires git and Python 3.8+ (standard library only). Works fully offline; no network access and no model API key required.
+compatibility: Requires git and Python 3.8+ (standard library only). Works fully offline; no network access, no model API key, and no vendor SDK required.
 metadata:
   author: Evan Zellner
   version: "0.1.0"
-  opencode/slash: "true"
 ---
 
 # ProDoc Guard
@@ -16,6 +15,12 @@ Project memory that lives in Git, not in an AI's head.
 The repository is the source of truth. Conversation history is not. Before doing
 substantial work in a project, and before reporting progress on it, reconcile the
 three canonical documents with the actual state of the Git repository.
+
+This skill is vendor-neutral. It uses only Agent Skills specification fields, and
+its scripts are plain Python that need no model, API key, or vendor SDK. Install
+it once at `.agents/skills/prodoc-guard/` (or your client's own skills directory)
+and it works the same everywhere; per-client details are in `docs/COMPATIBILITY.md`.
+
 
 ## The one rule
 

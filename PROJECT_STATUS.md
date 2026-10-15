@@ -9,9 +9,9 @@ In Progress
 <!-- Machine-maintained. Refresh with `prodoc update`; do not hand-edit. -->
 <!-- prodoc:verified:start -->
 - **Branch:** main
-- **Commit:** ec60e3713c2b5a5549d8db9ebee87d2fa60aef7b
+- **Commit:** e8aafc64d15d57cce83f3b5982a11d4efff3b3d2
 - **Working tree:** dirty
-- **Verified at:** 2026-10-15T23:36:02Z
+- **Verified at:** 2026-10-15T23:41:46Z
 <!-- prodoc:verified:end -->
 
 ## Completed Work
@@ -26,15 +26,19 @@ In Progress
 - [Implemented] Disposable-repository test suite and evidence generator — `tests/run_tests.py`
 - [Tested] CLI, skill-specification and template-contract tests pass on this commit — `docs/test-results.json`
 - [Implemented] Cross-platform installation, activation and limitation documentation — `README.md`, `docs/COMPATIBILITY.md`
-- [Implemented] Thirteen append-only architecture and policy decisions — `DECISION_LOG.md`
+- [Implemented] Fourteen append-only architecture and policy decisions — `DECISION_LOG.md`
+- [Implemented] Vendor-neutral portability: specification-only frontmatter, no vendor SDK, no per-client forks, enforced by tests — `SKILL.md`, `tests/test_skill_spec.py`
+- [Implemented] Compatibility matrix for OpenCode, Codex, Claude Code, Cursor, GitHub Copilot, Gemini CLI and ChatGPT, labelled verified, unverified, unsupported or planned — `docs/COMPATIBILITY.md`
+- [Implemented] Portable install path plus documented local adapters; no vendor plugin packaging, by design — `docs/COMPATIBILITY.md`
 - [Planned] Publish v0.1.0 to GitHub after the release checklist is green
 - [Planned] Verify the CLI on Windows and record the result here
+- [Planned] Record a live skill activation in at least one client and publish it in the matrix
 
 ## Tests
 
 | Suite | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| cli, skill-spec (unit + integration, disposable Git repositories) | `python3 tests/run_tests.py` | Pass (91) | `docs/test-results.json`, `docs/TEST_REPORT.md` |
+| cli, skill-spec (unit + integration, disposable Git repositories) | `python3 tests/run_tests.py` | Pass (100) | `docs/test-results.json`, `docs/TEST_REPORT.md` |
 | Agent Skills specification | `python3 scripts/check_skill.py .` | Pass (0 errors) | `docs/test-results.json` (gate `skill-spec`) |
 | Canonical documents | `python3 scripts/prodoc validate` | Pass | `docs/test-results.json` (gate `documents-validate`) |
 | Consistency and secret scan | `python3 scripts/prodoc check` | Pass | `docs/test-results.json` (gate `documents-check`) |

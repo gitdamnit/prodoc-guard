@@ -54,6 +54,10 @@ memory.
 | FR-13 | Remote availability is established before any claim about a remote | The skill requires observed evidence before reporting a push or release |
 | FR-14 | Every command works with no model API key and no network access | Offline test run passes with networking unavailable |
 | FR-15 | A reusable pull-request check exists for the canonical documents | Composite action runs `validate` and `check`; workflow passes in CI |
+| FR-16 | The core is platform-agnostic and vendor-neutral: one portable `SKILL.md` using only specification fields, and one CLI with no vendor SDK | `SKILL.md` has no vendor-namespaced metadata; shipped scripts import the standard library only |
+| FR-17 | A compatibility matrix distinguishes verified, unverified, unsupported and planned integrations across the supported clients | `docs/COMPATIBILITY.md` contains all four labels and names OpenCode, Codex, Claude Code, Cursor, GitHub Copilot, Gemini CLI and ChatGPT |
+| FR-18 | Client-specific differences are handled by install instructions or documented local adapters, never by forking the core | No per-client code path exists; adapters are local copy edits, and a test asserts it |
+| FR-19 | The tool runs without any agent, manually and in CI/CD | Every command runs from a shell; CI runs them, and the suite needs no client |
 
 ## Nonfunctional Requirements
 
@@ -70,6 +74,9 @@ memory.
 | NFR-9 | Machine-readable output is available for automation | Every command supports `--json` on stdout |
 | NFR-10 | Exit codes are stable and documented | 0 ok, 1 errors, 2 usage, 3 environment, 4 unsafe state |
 | NFR-11 | Test coverage is reproducible by a third party | `python3 tests/run_tests.py` regenerates `docs/test-results.json` and `docs/TEST_REPORT.md` |
+| NFR-12 | No vendor SDK, plugin, or runtime dependency in the core | Import allowlist enforced by test: standard library only |
+| NFR-13 | No claim of guaranteed skill activation in any environment | Every document states that clients may decline to invoke a skill; no wording asserts otherwise |
+| NFR-14 | Installation is a copy, not a build or an install step | The portable path `.agents/skills/prodoc-guard/` is documented and requires no package manager |
 
 ## Scope and Exclusions
 
@@ -92,6 +99,8 @@ memory.
 - Semantic analysis of prose beyond structure, evidence presence, and credential patterns.
 - Any dependency on, integration with, or modification of other projects by the
   same maintainer.
+- Vendor plugins, marketplace packages, or per-client releases of the core.
+  Distribution is a folder copy plus, at most, a documented local adapter.
 
 ## Technical Constraints
 
@@ -118,6 +127,11 @@ v0.1.0 is complete when all of the following hold on the tagged commit:
    OpenAI Codex, and states plainly what is and is not supported in ChatGPT.
 6. The repository contains no detected credentials in the canonical documents.
 7. The GitHub Actions workflow passes on a pull request against the default branch.
+8. The shipped scripts import only the standard library, asserted by an automated test.
+9. `docs/COMPATIBILITY.md` names every supported client and labels each integration
+   verified, unverified, unsupported, or planned, with no row claiming live
+   activation testing.
+10. No document claims guaranteed automatic activation in any product.
 
 ## Release Objectives
 
@@ -128,3 +142,5 @@ v0.1.0 is complete when all of the following hold on the tagged commit:
 | Keep the implementation small enough to audit in one sitting | The tool touches real repositories |
 | Make the documents useful without any tooling | Markdown plus discipline is the floor, not the ceiling |
 | Leave the release checklist green and reproducible by a stranger | Publication readiness must be demonstrated |
+| Stay portable across providers as the ecosystem fragments | Project memory outlives whichever assistant is fashionable |
+| Make the CLI useful with no assistant present at all | Manual and CI use is the only guaranteed execution path |
