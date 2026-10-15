@@ -9,15 +9,16 @@ In Progress
 <!-- Machine-maintained. Refresh with `prodoc update`; do not hand-edit. -->
 <!-- prodoc:verified:start -->
 - **Branch:** main
-- **Commit:** 2b548da25c4af1f7ff256343687d47c032a57778
+- **Commit:** 9f7512516c4fe4ffa709cc8e7109c04586f875e4
 - **Working tree:** dirty
-- **Verified at:** 2026-10-15T23:32:38Z
+- **Verified at:** 2026-10-15T23:35:39Z
 <!-- prodoc:verified:end -->
 
 ## Completed Work
 
 - [Implemented] Agent Skill with valid frontmatter, workflow steps and git safety rules — `SKILL.md`
 - [Implemented] Offline CLI with `init`, `validate`, `status`, `check`, `update`, JSON output and stable exit codes — `scripts/prodoc`
+- [Implemented] Commands run from a subdirectory resolve the canonical documents at the Git worktree root — `scripts/prodoc`
 - [Implemented] Skill-directory validator for the Agent Skills specification — `scripts/check_skill.py`
 - [Implemented] Bundled document templates whose placeholders fail validation until filled — `templates/PRODUCT_REQUIREMENTS.md`, `templates/DECISION_LOG.md`, `templates/PROJECT_STATUS.md`
 - [Implemented] Reference material for status rules, the security model and Git workflow — `references/status-rules.md`, `references/security.md`, `references/github-workflow.md`
@@ -33,7 +34,7 @@ In Progress
 
 | Suite | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| cli, skill-spec (unit + integration, disposable Git repositories) | `python3 tests/run_tests.py` | Pass (89) | `docs/test-results.json`, `docs/TEST_REPORT.md` |
+| cli, skill-spec (unit + integration, disposable Git repositories) | `python3 tests/run_tests.py` | Pass (91) | `docs/test-results.json`, `docs/TEST_REPORT.md` |
 | Agent Skills specification | `python3 scripts/check_skill.py .` | Pass (0 errors) | `docs/test-results.json` (gate `skill-spec`) |
 | Canonical documents | `python3 scripts/prodoc validate` | Pass | `docs/test-results.json` (gate `documents-validate`) |
 | Consistency and secret scan | `python3 scripts/prodoc check` | Pass | `docs/test-results.json` (gate `documents-check`) |

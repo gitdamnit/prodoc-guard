@@ -1426,6 +1426,21 @@ def build_parser():
     return parser
 
 
+def resolve_project_dir(repo):
+    """Prefer the directory that actually holds the canonical documents.
+
+    Running a command from a subdirectory should still find the project's
+    documents. The redirect only happens when documents exist somewhere else, so
+    `init` in an empty directory still creates them where the user asked.
+    """
+    if any((repo / doc).is_file() for doc in CANONICAL_DOCS):
+        return repo, False
+    root = git_root(repo)
+    if root is not None and root != repo and any((root / doc).is_file() for doc in CANONICAL_DOCS):
+        return root, True
+    return repo, False
+
+
 def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
@@ -1433,10 +1448,11 @@ def main(argv=None):
         parser.print_help()
         return 2
 
-    repo = Path(args.repo).expanduser().resolve() if args.repo else Path.cwd()
-    if not repo.is_dir():
-        sys.stderr.write("prodoc: repo path does not exist: %s\n" % repo)
+    requested = Path(args.repo).expanduser().resolve() if args.repo else Path.cwd()
+    if not requested.is_dir():
+        sys.stderr.write("prodoc: repo path does not exist: %s\n" % requested)
         return 3
+    repo, redirected = resolve_project_dir(requested)
     ctx = {"repo": repo}
 
     handlers = {
@@ -1454,6 +1470,15 @@ def main(argv=None):
     except KeyboardInterrupt:  # pragma: no cover
         sys.stderr.write("prodoc: interrupted\n")
         return 4
+    if redirected:
+        result["findings"].insert(
+            0,
+            Finding(
+                "repo.worktree_root",
+                "canonical documents are at the Git worktree root; using %s" % repo,
+                "info",
+            ),
+        )
     emit(result, args)
     return result["exit_code"]
 

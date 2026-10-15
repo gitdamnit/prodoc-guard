@@ -525,6 +525,26 @@ class InterfaceTests(RepoCase):
         proc = self.cli("status", "--repo", str(Path(self._tmp) / "absent"))
         self.assertEqual(proc.returncode, 3)
 
+    def test_commands_run_from_a_subdirectory_find_the_documents(self):
+        self.write_docs()
+        self.commit_all("docs: fixture")
+        subdir = self.repo / "src" / "deep"
+        subdir.mkdir(parents=True)
+        for command in ("status", "validate", "check"):
+            proc, payload = self.cli_json(command, cwd=subdir)
+            self.assertEqual(proc.returncode, 0, "%s from subdir: %s" % (command, payload))
+            self.assertEqual(payload["info"]["repo"], str(self.repo))
+            self.assertIn("repo.worktree_root", self.codes(payload, "info"))
+
+    def test_init_from_a_subdirectory_writes_where_asked(self):
+        subdir = self.repo / "src"
+        subdir.mkdir()
+        proc = self.cli("init", cwd=subdir)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        for doc in CANONICAL_DOCS:
+            self.assertTrue((subdir / doc).is_file(), doc)
+            self.assertFalse((self.repo / doc).exists(), doc)
+
     def test_repo_flag_targets_another_directory(self):
         self.write_docs()
         outside = Path(self._tmp) / "elsewhere"

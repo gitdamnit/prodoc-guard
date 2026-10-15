@@ -192,6 +192,9 @@ Full policy: [references/security.md](references/security.md).
   documentation commit is expected; the block names the commit that was verified.
 - `prodoc check` scans the three canonical documents for secret patterns and
   redacts matches in its output. A real finding is an error, not a warning.
+- The skill directory must be named exactly `prodoc-guard`. The specification
+  requires `name` to match the parent directory, so cloning into a differently
+  named folder makes the skill invalid; `scripts/check_skill.py` reports it.
 - Skills are discovered and invoked differently per product, and installing a
   skill in one product does not install it in another. Verified per-environment
   steps live in the repository `README.md` and `docs/COMPATIBILITY.md`.

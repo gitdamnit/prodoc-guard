@@ -54,6 +54,11 @@ without evidence fails the build, and a deleted decision record is an error.
 Pick the location for the product you use. Install into a project to share it
 with your team, or into your home directory to use it everywhere.
 
+> **The install directory must be named `prodoc-guard`.** The specification
+> requires the skill's `name` to match its parent directory name, and
+> `scripts/check_skill.py` enforces it. Cloning into a differently named folder
+> makes the skill invalid.
+
 ### OpenCode
 
 OpenCode discovers skills from several locations, walking up from the working
