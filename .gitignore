@@ -1,0 +1,23 @@
+# Byte-compiled / cached
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# Test and tool scratch output
+.prodoc-*.tmp
+.coverage
+htmlcov/
+
+# Editors and operating systems
+.DS_Store
+Thumbs.db
+*.swp
+*~
+.idea/
+.vscode/
+
+# Local agent/skill installs (install paths, not sources)
+.opencode/skills/prodoc-guard/
+.claude/skills/prodoc-guard/

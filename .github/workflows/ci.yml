@@ -1,0 +1,87 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Tests (python ${{ matrix.python }} on ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        python: ["3.8", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+
+      - name: Show tool versions
+        run: python3 --version && git --version
+
+      - name: Run the test suite
+        run: python3 tests/run_tests.py
+
+      - name: Upload machine-readable results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.python }}-${{ matrix.os }}
+          path: |
+            docs/test-results.json
+            docs/TEST_REPORT.md
+          if-no-files-found: warn
+
+  skill-spec:
+    name: Agent Skills specification
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Validate the skill directory
+        run: python3 scripts/check_skill.py .
+
+  documents:
+    name: Canonical documents
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Check the canonical documents in this repository
+        uses: ./.github/actions/prodoc-check
+        with:
+          path: .
+
+  no-network:
+    name: CLI runs with no network
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run every command offline
+        run: |
+          set -euo pipefail
+          python3 scripts/prodoc status --json > /dev/null
+          python3 scripts/prodoc validate --json > /dev/null
+          python3 scripts/prodoc check --json > /dev/null
+          python3 scripts/prodoc update --dry-run --json > /dev/null
+          echo "no network access was required"

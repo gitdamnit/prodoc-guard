@@ -1,0 +1,85 @@
+name: ProDoc Guard document check
+description: >-
+  Validate the three canonical project documents (PRODUCT_REQUIREMENTS.md,
+  DECISION_LOG.md, PROJECT_STATUS.md) in the calling repository: required
+  sections, decision-record integrity, evidence for completion claims, and
+  credential patterns. Read-only: this action never commits and needs only
+  contents: read.
+
+inputs:
+  path:
+    description: Directory containing the canonical documents.
+    required: false
+    default: "."
+  fail-on-warning:
+    description: >-
+      Treat warnings (dirty tree, stale recorded commit, missing referenced
+      path) as failures.
+    required: false
+    default: "false"
+
+outputs:
+  result:
+    description: The JSON payload produced by the last prodoc check.
+    value: ${{ steps.check.outputs.result }}
+
+runs:
+  using: composite
+  steps:
+    - name: Show tool versions
+      shell: bash
+      run: |
+        python3 --version
+        git --version
+
+    - name: prodoc validate
+      shell: bash
+      env:
+        PRODOC_INPUT_PATH: ${{ inputs.path }}
+      run: |
+        set -euo pipefail
+        python3 "${{ github.action_path }}/../../../scripts/prodoc" validate \
+          --repo "$PRODOC_INPUT_PATH" --json
+
+    - name: prodoc check
+      id: check
+      shell: bash
+      env:
+        PRODOC_INPUT_PATH: ${{ inputs.path }}
+        PRODOC_FAIL_ON_WARNING: ${{ inputs.fail-on-warning }}
+      run: |
+        set -euo pipefail
+        output="$(python3 "${{ github.action_path }}/../../../scripts/prodoc" check \
+          --repo "$PRODOC_INPUT_PATH" --json)" || {
+          printf '%s\n' "$output"
+          echo "::error title=ProDoc Guard::prodoc check reported errors"
+          exit 1
+        }
+        printf '%s\n' "$output"
+        if [ "$PRODOC_FAIL_ON_WARNING" = "true" ]; then
+          warnings="$(printf '%s' "$output" | python3 -c \
+            'import json,sys; print(sum(1 for f in json.load(sys.stdin)["findings"] if f["severity"] == "warning"))')"
+          if [ "$warnings" != "0" ]; then
+            echo "::error title=ProDoc Guard::$warnings warning(s) and fail-on-warning is set"
+            exit 1
+          fi
+        fi
+        {
+          echo "result<<PRODOC_EOF"
+          printf '%s\n' "$output"
+          echo "PRODOC_EOF"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Summarise
+      if: always()
+      shell: bash
+      env:
+        PRODOC_INPUT_PATH: ${{ inputs.path }}
+      run: |
+        {
+          echo "### ProDoc Guard"
+          echo
+          echo "Checked the canonical documents in \`$PRODOC_INPUT_PATH\`."
+          echo
+          echo "This action is read-only and committed nothing."
+        } >> "$GITHUB_STEP_SUMMARY"

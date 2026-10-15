@@ -1,0 +1,14 @@
+# UI metadata for the ChatGPT desktop app and Codex.
+# Field definitions: https://developers.openai.com/codex/skills
+interface:
+  display_name: "ProDoc Guard"
+  short_description: "Keep project requirements, decisions and status honest in Git"
+  default_prompt: >-
+    Reconcile this project's canonical documents (PRODUCT_REQUIREMENTS.md,
+    DECISION_LOG.md, PROJECT_STATUS.md) with the actual state of the Git
+    repository, record any decisions made this session, and report the files
+    changed, the commit SHA, and what remains outstanding.
+policy:
+  # Implicit invocation stays on: the value of this skill is that it activates
+  # when work is about to be reported as done, without being asked for by name.
+  allow_implicit_invocation: true
