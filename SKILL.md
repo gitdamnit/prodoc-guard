@@ -186,8 +186,10 @@ Full policy: [references/security.md](references/security.md).
   the marker from an actual unfilled marker. Write the marker name without the
   surrounding comment punctuation.
 - Stale is normal, silent is not. If the recorded commit is behind HEAD,
-  `prodoc check` warns and you run `prodoc update`. Only the recorded-commit-does-
-  not-exist case is an error.
+  `prodoc check` warns and you run `prodoc update`. Only the recorded-commit-
+  does-not-exist case is an error. Committing the refreshed document makes the
+  recorded commit one behind HEAD, so a single stale warning after a
+  documentation commit is expected; the block names the commit that was verified.
 - `prodoc check` scans the three canonical documents for secret patterns and
   redacts matches in its output. A real finding is an error, not a warning.
 - Skills are discovered and invoked differently per product, and installing a

@@ -1,6 +1,6 @@
 {
   "schema": "prodoc-guard/test-results@1",
-  "generated_at": "2026-10-15T23:30:04Z",
+  "generated_at": "2026-10-15T23:31:35Z",
   "command": "python3 tests/run_tests.py",
   "environment": {
     "python": "3.12.3",
@@ -12,17 +12,17 @@
   },
   "repository": {
     "root": "/home/evan/Projects/prodoc-guard",
-    "branch": null,
-    "commit": null,
+    "branch": "main",
+    "commit": "3e6ff8930e56fe1a37ef0d36c890424877d7ae2d",
     "working_tree": "clean"
   },
   "totals": {
     "tests": 89,
-    "passed": 87,
-    "failed": 2,
+    "passed": 89,
+    "failed": 0,
     "errored": 0,
     "skipped": 0,
-    "duration_seconds": 14.98,
+    "duration_seconds": 11.746,
     "suites": [
       {
         "suite": "test_cli",
@@ -35,14 +35,14 @@
       {
         "suite": "test_skill_spec",
         "tests": 32,
-        "passed": 30,
-        "failed": 2,
+        "passed": 32,
+        "failed": 0,
         "errored": 0,
         "skipped": 0
       }
     ],
-    "gates_passed": false,
-    "ok": false
+    "gates_passed": true,
+    "ok": true
   },
   "gates": [
     {
@@ -50,26 +50,26 @@
       "command": "/usr/bin/python3 scripts/check_skill.py .",
       "returncode": 0,
       "passed": true,
-      "duration_seconds": 0.1066,
-      "stdout": "skill: prodoc-guard\nlines: 200   description: 729 chars\n  OK      no specification issues found\n  skills-ref: skills-ref not installed (optional)\nresult: PASS",
+      "duration_seconds": 0.1195,
+      "stdout": "skill: prodoc-guard\nlines: 204   description: 759 chars\n  OK      no specification issues found\n  skills-ref: skills-ref not installed (optional)\nresult: PASS",
       "stderr": ""
     },
     {
       "name": "documents-validate",
       "command": "/usr/bin/python3 scripts/prodoc validate",
-      "returncode": 1,
-      "passed": false,
-      "duration_seconds": 0.2123,
-      "stdout": "prodoc validate: FAILED\n  ERROR: DECISION_LOG.md:78  ...\n  ERROR: DECISION_LOG.md:50  decision D-0004 is missing 'Decision'\n  ERROR: DECISION_LOG.md:72  decision D-0006 is missing 'Decision'\n  ERROR: PROJECT_STATUS.md  PROJECT_STATUS.md is missing; run 'prodoc init'",
+      "returncode": 0,
+      "passed": true,
+      "duration_seconds": 0.1016,
+      "stdout": "prodoc validate: OK",
       "stderr": ""
     },
     {
       "name": "documents-check",
       "command": "/usr/bin/python3 scripts/prodoc check",
-      "returncode": 1,
-      "passed": false,
-      "duration_seconds": 0.0999,
-      "stdout": "prodoc check: FAILED\n  ERROR: PROJECT_STATUS.md  PROJECT_STATUS.md is missing; run 'prodoc init'\n  INFO:   no Git history available; append-only and history checks skipped",
+      "returncode": 0,
+      "passed": true,
+      "duration_seconds": 0.1389,
+      "stdout": "prodoc check: OK",
       "stderr": ""
     }
   ],
@@ -241,455 +241,455 @@
       "id": "test_cli.CheckTests.test_append_only_violation_is_detected",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.4334,
+      "duration_seconds": 0.2523,
       "message": null
     },
     {
       "id": "test_cli.CheckTests.test_clean_documents_pass_the_secret_scan",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.2007,
+      "duration_seconds": 0.1467,
       "message": null
     },
     {
       "id": "test_cli.CheckTests.test_missing_documents_are_errors",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.2102,
+      "duration_seconds": 0.1387,
       "message": null
     },
     {
       "id": "test_cli.CheckTests.test_missing_referenced_path_is_a_warning",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.2073,
+      "duration_seconds": 0.145,
       "message": null
     },
     {
       "id": "test_cli.CheckTests.test_secret_is_detected_and_redacted",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1997,
+      "duration_seconds": 0.1258,
       "message": null
     },
     {
       "id": "test_cli.CheckTests.test_stale_recorded_commit_is_a_warning_not_an_error",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.2655,
+      "duration_seconds": 0.162,
       "message": null
     },
     {
       "id": "test_cli.CheckTests.test_unknown_recorded_commit_is_an_error",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1882,
+      "duration_seconds": 0.1249,
       "message": null
     },
     {
       "id": "test_cli.EmptyRepositoryTests.test_status_reports_unborn_branch_without_crashing",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1835,
+      "duration_seconds": 0.1247,
       "message": null
     },
     {
       "id": "test_cli.EmptyRepositoryTests.test_validate_and_update_work_before_the_first_commit",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.3121,
+      "duration_seconds": 0.2161,
       "message": null
     },
     {
       "id": "test_cli.InitTests.test_init_creates_three_documents",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.3099,
+      "duration_seconds": 0.1013,
       "message": null
     },
     {
       "id": "test_cli.InitTests.test_init_dry_run_writes_nothing",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1321,
+      "duration_seconds": 0.1077,
       "message": null
     },
     {
       "id": "test_cli.InitTests.test_init_is_idempotent",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.2342,
+      "duration_seconds": 0.2164,
       "message": null
     },
     {
       "id": "test_cli.InitTests.test_init_missing_templates_is_environment_error",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.2623,
+      "duration_seconds": 0.1261,
       "message": null
     },
     {
       "id": "test_cli.InitTests.test_init_never_overwrites_existing_content",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.117,
+      "duration_seconds": 0.1188,
       "message": null
     },
     {
       "id": "test_cli.InitTests.test_templates_dir_resolves_from_script_location",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1232,
+      "duration_seconds": 0.1184,
       "message": null
     },
     {
       "id": "test_cli.InterfaceTests.test_bad_flag_is_a_usage_error",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.3021,
+      "duration_seconds": 0.1159,
       "message": null
     },
     {
       "id": "test_cli.InterfaceTests.test_json_schema_is_stable",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.7938,
+      "duration_seconds": 0.5281,
       "message": null
     },
     {
       "id": "test_cli.InterfaceTests.test_missing_repo_path_is_an_environment_error",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.4035,
+      "duration_seconds": 0.106,
       "message": null
     },
     {
       "id": "test_cli.InterfaceTests.test_no_command_prints_help_and_exits_two",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.3603,
+      "duration_seconds": 0.114,
       "message": null
     },
     {
       "id": "test_cli.InterfaceTests.test_quiet_suppresses_success_output",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.3098,
+      "duration_seconds": 0.1084,
       "message": null
     },
     {
       "id": "test_cli.InterfaceTests.test_repo_flag_targets_another_directory",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.3659,
+      "duration_seconds": 0.1076,
       "message": null
     },
     {
       "id": "test_cli.InterfaceTests.test_unknown_command_is_a_usage_error",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.2909,
+      "duration_seconds": 0.1072,
       "message": null
     },
     {
       "id": "test_cli.NonGitDirectoryTests.test_documents_work_without_git",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.6865,
+      "duration_seconds": 0.5396,
       "message": null
     },
     {
       "id": "test_cli.SafetyTests.test_cli_never_mutates_git_state",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 1.0286,
+      "duration_seconds": 0.9612,
       "message": null
     },
     {
       "id": "test_cli.SafetyTests.test_concurrent_modification_is_refused",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.5946,
+      "duration_seconds": 0.0392,
       "message": null
     },
     {
       "id": "test_cli.SafetyTests.test_read_only_directory_init_is_refused",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1617,
+      "duration_seconds": 0.1715,
       "message": null
     },
     {
       "id": "test_cli.SafetyTests.test_read_only_file_is_refused",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.237,
+      "duration_seconds": 0.2579,
       "message": null
     },
     {
       "id": "test_cli.StatusTests.test_detached_head_is_handled",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1866,
+      "duration_seconds": 0.2664,
       "message": null
     },
     {
       "id": "test_cli.StatusTests.test_dirty_tree_is_reported",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1702,
+      "duration_seconds": 0.1663,
       "message": null
     },
     {
       "id": "test_cli.StatusTests.test_invalid_remote_is_reported_and_credentials_redacted",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1582,
+      "duration_seconds": 0.3964,
       "message": null
     },
     {
       "id": "test_cli.StatusTests.test_missing_remote_is_reported",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1316,
+      "duration_seconds": 0.1582,
       "message": null
     },
     {
       "id": "test_cli.StatusTests.test_multiple_branches_and_cli_does_not_switch",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.3492,
+      "duration_seconds": 0.4372,
       "message": null
     },
     {
       "id": "test_cli.StatusTests.test_reports_branch_commit_and_tree",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1397,
+      "duration_seconds": 0.2343,
       "message": null
     },
     {
       "id": "test_cli.StatusTests.test_status_works_without_git_binary",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1079,
+      "duration_seconds": 0.162,
       "message": null
     },
     {
       "id": "test_cli.UpdateTests.test_update_dry_run_writes_nothing",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1515,
+      "duration_seconds": 0.2374,
       "message": null
     },
     {
       "id": "test_cli.UpdateTests.test_update_records_dirty_tree_honestly",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1345,
+      "duration_seconds": 0.1957,
       "message": null
     },
     {
       "id": "test_cli.UpdateTests.test_update_refreshes_only_the_verified_block",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1425,
+      "duration_seconds": 0.1872,
       "message": null
     },
     {
       "id": "test_cli.UpdateTests.test_update_rejects_unknown_phase",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.146,
+      "duration_seconds": 0.1336,
       "message": null
     },
     {
       "id": "test_cli.UpdateTests.test_update_sets_explicit_phase",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1686,
+      "duration_seconds": 0.2003,
       "message": null
     },
     {
       "id": "test_cli.UpdateTests.test_update_without_commits_warns_not_fails",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1477,
+      "duration_seconds": 0.1403,
       "message": null
     },
     {
       "id": "test_cli.UpdateTests.test_update_without_markers_fails",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1189,
+      "duration_seconds": 0.1293,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_claim_with_evidence_is_accepted",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1396,
+      "duration_seconds": 0.1535,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_claim_without_evidence_is_rejected",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1429,
+      "duration_seconds": 0.1282,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_completed_work_state_outside_vocabulary_is_rejected",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1216,
+      "duration_seconds": 0.1454,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_decision_missing_field_is_named",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1147,
+      "duration_seconds": 0.1424,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_duplicate_decision_id_is_rejected",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1548,
+      "duration_seconds": 0.1166,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_fabricated_test_result_is_rejected",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1289,
+      "duration_seconds": 0.1302,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_fenced_decision_example_is_not_a_record",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1325,
+      "duration_seconds": 0.2013,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_fresh_init_fails_validation_until_filled",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.2702,
+      "duration_seconds": 0.2921,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_honest_not_run_result_is_accepted",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1301,
+      "duration_seconds": 0.1479,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_missing_document_is_an_error",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1434,
+      "duration_seconds": 0.14,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_missing_section_is_named",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1288,
+      "duration_seconds": 0.137,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_out_of_order_decision_ids_are_rejected",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1592,
+      "duration_seconds": 0.1556,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_test_result_evidence_must_exist",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.2235,
+      "duration_seconds": 0.1371,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_test_result_evidence_that_exists_is_accepted",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1627,
+      "duration_seconds": 0.1633,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_unknown_phase_is_a_warning",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1673,
+      "duration_seconds": 0.1544,
       "message": null
     },
     {
       "id": "test_cli.ValidateTests.test_valid_documents_pass",
       "suite": "test_cli",
       "status": "passed",
-      "duration_seconds": 0.1471,
+      "duration_seconds": 0.1271,
       "message": null
     },
     {
       "id": "test_skill_spec.CheckSkillScriptTests.test_missing_bundled_reference_is_rejected",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.4492,
+      "duration_seconds": 0.1102,
       "message": null
     },
     {
       "id": "test_skill_spec.CheckSkillScriptTests.test_missing_description_is_rejected",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.1231,
+      "duration_seconds": 0.1143,
       "message": null
     },
     {
       "id": "test_skill_spec.CheckSkillScriptTests.test_missing_skill_md_is_an_environment_error",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.0952,
+      "duration_seconds": 0.0737,
       "message": null
     },
     {
       "id": "test_skill_spec.CheckSkillScriptTests.test_name_directory_mismatch_is_rejected",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.116,
+      "duration_seconds": 0.1021,
       "message": null
     },
     {
       "id": "test_skill_spec.CheckSkillScriptTests.test_overlong_description_is_rejected",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.1136,
+      "duration_seconds": 0.0993,
       "message": null
     },
     {
       "id": "test_skill_spec.CheckSkillScriptTests.test_repository_skill_passes",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.217,
+      "duration_seconds": 0.1026,
       "message": null
     },
     {
       "id": "test_skill_spec.CheckSkillScriptTests.test_unfenced_frontmatter_is_rejected",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.0932,
+      "duration_seconds": 0.107,
       "message": null
     },
     {
       "id": "test_skill_spec.CheckSkillScriptTests.test_uppercase_name_is_rejected",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.1024,
+      "duration_seconds": 0.1054,
       "message": null
     },
     {
@@ -730,9 +730,9 @@
     {
       "id": "test_skill_spec.RepositoryDocumentationTests.test_repository_has_release_artefacts",
       "suite": "test_skill_spec",
-      "status": "failed",
-      "duration_seconds": 0.0007,
-      "message": "AssertionError: False is not true : missing docs/TEST_REPORT.md"
+      "status": "passed",
+      "duration_seconds": 0.0002,
+      "message": null
     },
     {
       "id": "test_skill_spec.SkillFrontmatterTests.test_bundled_references_all_exist",
@@ -751,15 +751,15 @@
     {
       "id": "test_skill_spec.SkillFrontmatterTests.test_description_length_and_trigger_keywords",
       "suite": "test_skill_spec",
-      "status": "failed",
-      "duration_seconds": 0.0004,
-      "message": "AssertionError: 'prodoc-guard' not found in 'maintain authoritative, verifiable project documentation in git across ai-assisted sessions. use when starting or resuming substantial work in a repository, when project context or earlier decisions seem lost, when the user asks what is done/tested/deployed, or before reporting progress, committing, or releasing. keeps three canonical documents (product_requirements.md, decision_log.md, project_status.md) present, consistent, and honest, so requirements, decisions, and status live in the repository instead of in conversation history. triggers include \"update the project docs\", \"what\\'s the status\", \"record this decision\", \"where were we\", \"document this\", \"prodoc\", and any claim that work is complete, tested, or shipped.' : description should mention 'prodoc-guard'"
+      "status": "passed",
+      "duration_seconds": 0.0,
+      "message": null
     },
     {
       "id": "test_skill_spec.SkillFrontmatterTests.test_experimental_allowed_tools_is_not_used",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.0001,
+      "duration_seconds": 0.0,
       "message": null
     },
     {
@@ -787,7 +787,7 @@
       "id": "test_skill_spec.SkillFrontmatterTests.test_name_is_required_and_matches_the_directory",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.0001,
+      "duration_seconds": 0.0,
       "message": null
     },
     {
@@ -829,28 +829,28 @@
       "id": "test_skill_spec.SkillFrontmatterTests.test_skill_states_the_work_state_vocabulary",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.0001,
+      "duration_seconds": 0.0,
       "message": null
     },
     {
       "id": "test_skill_spec.TemplateContractTests.test_every_required_section_is_in_its_template",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.0035,
+      "duration_seconds": 0.0007,
       "message": null
     },
     {
       "id": "test_skill_spec.TemplateContractTests.test_status_template_has_a_managed_block",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.0002,
+      "duration_seconds": 0.0001,
       "message": null
     },
     {
       "id": "test_skill_spec.TemplateContractTests.test_templates_carry_placeholders_for_missing_information",
       "suite": "test_skill_spec",
       "status": "passed",
-      "duration_seconds": 0.0002,
+      "duration_seconds": 0.0001,
       "message": null
     },
     {
