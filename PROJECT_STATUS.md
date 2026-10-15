@@ -9,9 +9,9 @@ In Progress
 <!-- Machine-maintained. Refresh with `prodoc update`; do not hand-edit. -->
 <!-- prodoc:verified:start -->
 - **Branch:** main
-- **Commit:** 9f7512516c4fe4ffa709cc8e7109c04586f875e4
+- **Commit:** ec60e3713c2b5a5549d8db9ebee87d2fa60aef7b
 - **Working tree:** dirty
-- **Verified at:** 2026-10-15T23:35:39Z
+- **Verified at:** 2026-10-15T23:36:02Z
 <!-- prodoc:verified:end -->
 
 ## Completed Work
