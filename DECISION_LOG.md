@@ -145,3 +145,14 @@ end; never edit or delete a record's substance.
 - **Rationale:** Recording the truth about a dirty tree costs nothing and removes the most plausible way for this tool to lie. Refusing to run would trade one honesty problem for a usability problem.
 - **Consequences:** A `dirty` verified block is normal and must not be read as an error. `prodoc check` warns when the recorded commit is behind `HEAD`, and treats a recorded commit that does not exist as an error, because that one is unrecoverable by re-running the command.
 - **Supersedes:** None
+
+### D-0013 — Put the implementation in scripts/ rather than a src/ package
+
+- **Date:** 2026-10-15
+- **Status:** Accepted
+- **Context:** The implementation is one offline CLI plus one skill validator. A conventional `src/` package layout would need a package name, `__init__.py` files, an entry-point shim, and a decision about how a skill's `SKILL.md` refers to code it can execute.
+- **Alternatives Considered:** `src/prodoc/` as an installable package with a console-script entry point (rejected: adds packaging and an install step for a tool whose premise is that there is no install step); a `pyproject.toml` with an editable install (rejected: a build toolchain and a dependency resolver where a file copy would do); a root-level `prodoc.py` (rejected: it mixes application code with the canonical documents at the repository root); `scripts/` only (chosen).
+- **Decision:** Keep the executable code in `scripts/`, the Agent Skills convention for bundled code an agent runs, and put tests and the evidence generator in `tests/`.
+- **Rationale:** The specification tells an agent to execute bundled scripts by relative path from the skill directory, so `scripts/prodoc` works in every client with nothing installed, built, or resolved.
+- **Consequences:** There is no `src/` package and no installable distribution, so the CLI is consumed by copying it or adding it to `PATH`. Tests import the extensionless script by file path rather than by module name, which is unusual and contained in one helper. If a second consumer ever needs to import the code as a library, this decision must be revisited rather than worked around.
+- **Supersedes:** None

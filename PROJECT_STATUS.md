@@ -25,7 +25,7 @@ In Progress
 - [Implemented] Disposable-repository test suite and evidence generator — `tests/run_tests.py`
 - [Tested] CLI, skill-specification and template-contract tests pass on this commit — `docs/test-results.json`
 - [Implemented] Cross-platform installation, activation and limitation documentation — `README.md`, `docs/COMPATIBILITY.md`
-- [Implemented] Twelve append-only architecture and policy decisions — `DECISION_LOG.md`
+- [Implemented] Thirteen append-only architecture and policy decisions — `DECISION_LOG.md`
 - [Planned] Publish v0.1.0 to GitHub after the release checklist is green
 - [Planned] Verify the CLI on Windows and record the result here
 
