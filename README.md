@@ -1,5 +1,7 @@
 # ProDoc Guard
 
+<img width="550" height="550" alt="ProDocGuard" src="https://github.com/user-attachments/assets/3361d4e6-cd24-4874-a260-d4d2b0986a53" />
+
 **Project memory that lives in Git, not in an AI's head.**
 
 An open-source, **platform-agnostic** [Agent Skill](https://agentskills.io) that
