@@ -10,9 +10,9 @@ In Progress
 <!-- prodoc:observed:start -->
 <!-- Observed from Git metadata only, by `prodoc update`. This block is not evidence that the implementation or its tests are correct; record that under `## Verification Evidence`. -->
 - **Observed branch:** audit/corrections-p1-p2
-- **Observed commit:** f1dc26668ca4af852c6bf36e0e1c42d5f5b5ce62
+- **Observed commit:** 3dcbe6989aa2643b546698a1ed5e1976dfe3f41e
 - **Observed working tree:** dirty
-- **Observed at:** 2026-10-16T00:32:28Z
+- **Observed at:** 2026-10-16T00:38:03Z
 <!-- prodoc:observed:end -->
 
 ## Verification Evidence
