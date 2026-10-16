@@ -10,9 +10,9 @@ In Progress
 <!-- prodoc:observed:start -->
 <!-- Observed from Git metadata only, by `prodoc update`. This block is not evidence that the implementation or its tests are correct; record that under `## Verification Evidence`. -->
 - **Observed branch:** audit/corrections-p1-p2
-- **Observed commit:** 3dcbe6989aa2643b546698a1ed5e1976dfe3f41e
+- **Observed commit:** 07e6f43338d7045728a7d0a3db2ea2aecd71b8c6
 - **Observed working tree:** dirty
-- **Observed at:** 2026-10-16T00:38:03Z
+- **Observed at:** 2026-10-16T01:36:54Z
 <!-- prodoc:observed:end -->
 
 ## Verification Evidence
@@ -25,6 +25,9 @@ command writes entries in this section.
 - **Verification:** commit `f1dc26668ca4af852c6bf36e0e1c42d5f5b5ce62` — `git archive` of HEAD extracted, every file hashing identically to its Git blob, and the extracted copy passed `check_skill.py` and `prodoc validate` — evidence `docs/TEST_REPORT.md`
 - **Verification:** commit `f1dc26668ca4af852c6bf36e0e1c42d5f5b5ce62` — skill directory validated against the Agent Skills specification, 0 errors — evidence `docs/COMPATIBILITY.md`
 - **Verification:** commit `f1dc26668ca4af852c6bf36e0e1c42d5f5b5ce62` — official reference validator (`agentskills validate`) reports "Valid skill", exit 0 — evidence `docs/COMPATIBILITY.md`
+- **Verification:** commit `07e6f43338d7045728a7d0a3db2ea2aecd71b8c6` — release-candidate validation: 157 tests (156 passed, 1 opt-in skip), gates 3/3, functional scenarios 39/39, official validator `Valid skill` — evidence `docs/test-results.json`
+- **Verification:** commit `07e6f43338d7045728a7d0a3db2ea2aecd71b8c6` — OpenCode v2.0.21 discovered, invoked and executed the skill; Gemini CLI 0.56.0 enumerated it — evidence `docs/RUNTIME_EVIDENCE.md`
+- **Verification:** commit `07e6f43338d7045728a7d0a3db2ea2aecd71b8c6` — static analysis clean of high and medium findings; no credentials in any tracked file — evidence `docs/RELEASE_CHECKLIST.md`
 
 No client-side activation has been verified. No client has been launched, so no
 `Runtime-tested` claim exists anywhere in this project.
