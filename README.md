@@ -104,6 +104,18 @@ cp -R /tmp/prodoc-guard .agents/skills/prodoc-guard    # project-wide, committed
 # or: cp -R /tmp/prodoc-guard ~/.agents/skills/prodoc-guard   # all your projects
 ```
 
+If you download the release's **source archive** instead of cloning, note that
+GitHub names the extracted folder after the tag (`prodoc-guard-0.1.0`). Rename it
+to `prodoc-guard` before installing, or the skill fails the directory-name rule:
+
+```bash
+curl -sSL -o prodoc-guard.tar.gz \
+  https://github.com/gitdamnit/prodoc-guard/archive/refs/tags/v0.1.0.tar.gz
+mkdir -p .agents/skills && tar xzf prodoc-guard.tar.gz -C .agents/skills
+mv .agents/skills/prodoc-guard-0.1.0 .agents/skills/prodoc-guard
+python3 .agents/skills/prodoc-guard/scripts/check_skill.py .agents/skills/prodoc-guard
+```
+
 ### Per-client paths
 
 Each client also reads its own directory, and several read their competitors'.

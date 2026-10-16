@@ -2,7 +2,7 @@
 
 ## Current Phase
 
-In Progress
+Released
 
 ## Repository State
 
@@ -10,9 +10,9 @@ In Progress
 <!-- prodoc:observed:start -->
 <!-- Observed from Git metadata only, by `prodoc update`. This block is not evidence that the implementation or its tests are correct; record that under `## Verification Evidence`. -->
 - **Observed branch:** main
-- **Observed commit:** f429e56b044e95ec2cc46a6de11282417aedd81f
+- **Observed commit:** ef3e69313d489b1a89d0cf4099375c2be4306494
 - **Observed working tree:** dirty
-- **Observed at:** 2026-10-16T02:23:27Z
+- **Observed at:** 2026-10-16T02:29:38Z
 <!-- prodoc:observed:end -->
 
 ## Verification Evidence
@@ -31,6 +31,9 @@ command writes entries in this section.
 - **Verification:** commit `f429e56b044e95ec2cc46a6de11282417aedd81f` — GitHub Actions green, all five jobs, on CPython 3.8.18 and 3.12.15; 159 tests, 158 passed, 1 skipped — evidence https://github.com/gitdamnit/prodoc-guard/actions/runs/38839726677
 - **Verification:** commit `f429e56b044e95ec2cc46a6de11282417aedd81f` — the README install steps were executed against the public repository: clone, copy into the skills directory, `check_skill.py` PASS, `prodoc init` created the three documents — evidence `README.md`
 - **Verification:** commit `f429e56b044e95ec2cc46a6de11282417aedd81f` — 39/39 disposable-repository scenarios, re-run after the CI fix — evidence `tests/rc1_functional.py`
+- **Verification:** commit `ef3e69313d489b1a89d0cf4099375c2be4306494` — GitHub Actions green, all five jobs, on CPython 3.8.18 and 3.12.15 — evidence https://github.com/gitdamnit/prodoc-guard/actions/runs/38840191939
+- **Verification:** commit `ef3e69313d489b1a89d0cf4099375c2be4306494` — the release's generated source archive was downloaded and its suite run to completion: 159 tests, 158 passed, 1 skipped, gates pass, once the extracted folder is named `prodoc-guard` — evidence https://github.com/gitdamnit/prodoc-guard/releases/tag/v0.1.0
+- **Verification:** commit `ef3e69313d489b1a89d0cf4099375c2be4306494` — `v0.1.0` published as a public GitHub release (not a draft, not a prerelease) — evidence https://github.com/gitdamnit/prodoc-guard/releases/tag/v0.1.0
 
 No client-side activation has been verified. No client has been launched, so no
 `Runtime-tested` claim exists anywhere in this project.
@@ -67,7 +70,8 @@ No client-side activation has been verified. No client has been launched, so no
 | Suite | Command | Result | Evidence |
 | --- | --- | --- | --- |
 | cli, skill-spec (unit + integration, disposable Git repositories) | `python3 tests/run_tests.py` | Pass (159, 1 skipped) | `docs/test-results.json`, `docs/TEST_REPORT.md` |
-| The same suite in GitHub Actions, CPython 3.8.18 and 3.12.15 | `python3 tests/run_tests.py` | Pass (159, 1 skipped) | https://github.com/gitdamnit/prodoc-guard/actions/runs/38839726677 |
+| The same suite in GitHub Actions, CPython 3.8.18 and 3.12.15 | `python3 tests/run_tests.py` | Pass (159, 1 skipped) | https://github.com/gitdamnit/prodoc-guard/actions/runs/38840191939 |
+| The suite from the release's generated source archive (folder renamed to `prodoc-guard`) | `python3 tests/run_tests.py` | Pass (159, 1 skipped) | https://github.com/gitdamnit/prodoc-guard/releases/tag/v0.1.0 |
 | Agent Skills specification | `python3 scripts/check_skill.py .` | Pass (0 errors) | `docs/test-results.json` (gate `skill-spec`) |
 | Canonical documents | `python3 scripts/prodoc validate` | Pass | `docs/test-results.json` (gate `documents-validate`) |
 | Consistency and secret scan | `python3 scripts/prodoc check` | Pass | `docs/test-results.json` (gate `documents-check`) |
@@ -97,6 +101,19 @@ No client-side activation has been verified. No client has been launched, so no
 - Gemini CLI invocation is not independently confirmed: `activate_skill` is
   unavailable in plan mode and the `-y` run's success line is the model's own
   summary. Severity: unverified claim, recorded as such in `docs/RUNTIME_EVIDENCE.md`.
+- GitHub's generated source archive extracts to `prodoc-guard-0.1.0`, and the Agent
+  Skills specification requires the skill directory to be named after the skill, so
+  `check_skill.py` and three tests fail until the folder is renamed to
+  `prodoc-guard`. Severity: cosmetic-to-annoying; documented in `README.md`, and the
+  release is otherwise unaffected because installs copy into a correctly named
+  directory. A `.gitattributes` `export-subst` trick cannot change the archive name,
+  so this can only be documented.
+- Every commit in this repository is authored as `Evan Zellner
+  <evan@example.invalid>`, a placeholder address set when the repository was
+  created, so GitHub shows the commits as unverified. Severity: identity, not
+  correctness. Fixing it retroactively needs a history rewrite and a force-push,
+  which is explicitly out of scope; future commits should set a real
+  `user.email`.
 - Bandit reports 2 low-severity findings in `scripts/check_skill.py` (B404 import of
   `subprocess`, B603 call without `shell=True`). Both are the safe pattern, with no
   shell interpolation and an allowlisted argv. Severity: accepted, no High/Medium.
@@ -113,6 +130,17 @@ None. Publication is an authorization decision, not a technical one.
 
 ## Release Status
 
-Not released. No version has been tagged, no package has been published, and no
-public repository has been created. See `CHANGELOG.md` and
+**v0.1.0 is published.** First public release.
+
+| | |
+| --- | --- |
+| Version and tag | `v0.1.0` (annotated; tag object `7d1a436`, peeling to `ef3e693`) |
+| Tagged commit | `ef3e69313d489b1a89d0cf4099375c2be4306494` |
+| Published | 2026-10-16T02:24:50Z on GitHub (2026-10-15 local, UTC-05:00) |
+| Repository | <https://github.com/gitdamnit/prodoc-guard> |
+| Release | <https://github.com/gitdamnit/prodoc-guard/releases/tag/v0.1.0> |
+| License | MIT, Copyright (c) 2026 Evan Zellner |
+
+Nothing has been published to a package registry; distribution is the Git repository
+and the release's generated source archive. See `CHANGELOG.md` and
 `docs/RELEASE_CHECKLIST.md`.

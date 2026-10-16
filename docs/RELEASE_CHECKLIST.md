@@ -109,9 +109,12 @@ Checked for the release candidate on **2026-10-15**. Evidence lives in
 - [x] A real GitHub Actions run completed on a pushed commit: all five jobs green
       on Python 3.8 and 3.12 —
       <https://github.com/gitdamnit/prodoc-guard/actions/runs/38839726677>.
-- [ ] **Pending:** tag `v0.1.0` and push it.
-- [ ] **Pending:** publish the GitHub release, then record the release URL, tag and
-      publication date in `PROJECT_STATUS.md`.
+- [x] Annotated tag `v0.1.0` created and pushed (tag object `7d1a436`, peeling to
+      `ef3e693`).
+- [x] GitHub release published as a public, non-draft, non-prerelease release:
+      <https://github.com/gitdamnit/prodoc-guard/releases/tag/v0.1.0>.
+- [x] Publication recorded in `PROJECT_STATUS.md` with the date, tag, commit and
+      release URL, and the observed block refreshed to `Released`.
 - [x] Nothing was force-pushed, and no history was rewritten beyond an unpushed
       local tip corrected before this candidate was cut.
 
