@@ -29,8 +29,43 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - The portable install path `.agents/skills/prodoc-guard/`, shared by the
   verified clients, plus per-client alternatives and optional local adapters.
 
+### Fixed (independent audit, commit f1dc266)
+
+- **P1 Decision history integrity.** `prodoc check` compared decision ID sets, so
+  editing a record in place was invisible. It now compares a whitespace-normalized
+  digest per record and reports an edit (`log.modified`, naming the changed
+  fields), a deletion (`log.append_only`), and a reordering (`log.reordered`). A
+  `Status` change is a warning, because superseding is intended. The guarantee is
+  documented as an integrity check against HEAD, not tamper-proofing.
+- **P1 Verified-state semantics.** `prodoc update` observed Git metadata under the
+  word "verified". The block is now `prodoc:observed` with `Observed *` fields and
+  a caveat, the section is `## Repository State`, and a new required
+  `## Verification Evidence` section holds hand-written entries with a commit and
+  an artefact. Release-state claims need one, and `update --phase Released`
+  refuses without one. Old markers and headings are accepted, reported as
+  deprecated, and migrated.
+- **P2 Filesystem safety.** Writes are refused (exit 4) to a symbolic link or
+  outside the selected project; `init` treats a symlinked document as present; the
+  Git-root redirect never crosses a repository boundary. The write sequence now
+  hashes twice (before writing and before the rename), fsyncs, and re-reads to
+  confirm, with the residual window documented.
+- **P2 Test evidence.** `tests/run_tests.py` no longer rewrites tracked files by
+  default: results go to the untracked `test-output/`. Refreshing
+  `docs/test-results.json` and `docs/TEST_REPORT.md` needs
+  `--update-evidence --force`, and the runner refuses otherwise. Also fixed a
+  self-invocation recursion in the new runner tests that made a full run take over
+  twelve minutes.
+- **P2 Compatibility labels.** `Verified` conflated conformance with testing. The
+  matrix now distinguishes `Specification-conformant` from `Runtime-tested`, states
+  that no client was launched, and a test fails any client row claiming
+  `Runtime-tested` without a recorded run.
+
 ### Changed
 
+- `prodoc update --json` renames `facts` to `observed`, and its keys to
+  `observed branch`, `observed commit`, `observed working tree`, `observed at`.
+- `## Verification Evidence` is a newly required section for `PROJECT_STATUS.md`;
+  documents without it fail `validate` until it is added.
 - The portable `SKILL.md` uses only specification-defined frontmatter fields. The
   OpenCode `/prodoc-guard` slash command is no longer enabled by default; it is a
   documented one-line local adapter. This keeps claude.ai and Skills API packaging

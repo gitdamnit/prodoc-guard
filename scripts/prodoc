@@ -63,7 +63,8 @@ REQUIRED_SECTIONS = {
     ),
     "PROJECT_STATUS.md": (
         "Current Phase",
-        "Verified State",
+        "Repository State",
+        "Verification Evidence",
         "Completed Work",
         "Tests",
         "Known Defects",
@@ -73,6 +74,11 @@ REQUIRED_SECTIONS = {
     ),
 }
 
+# Older documents named a heading and a managed block in terms that implied the
+# CLI verified the implementation. Those names are still accepted so existing
+# projects keep validating, and every command reports them as deprecated.
+SECTION_ALIASES = {"verified state": "repository state"}
+
 DECISION_FIELDS = (
     "Date",
     "Status",
@@ -81,6 +87,19 @@ DECISION_FIELDS = (
     "Decision",
     "Rationale",
     "Consequences",
+)
+
+# Fields that participate in the decision-integrity digest. `Status` is excluded
+# because marking an old record `Superseded by D-NNNN` is an intended mutation;
+# every other field, and the title, must survive unchanged.
+DECISION_DIGEST_FIELDS = (
+    "date",
+    "context",
+    "alternatives considered",
+    "decision",
+    "rationale",
+    "consequences",
+    "supersedes",
 )
 
 DECISION_STATUSES = ("Proposed", "Accepted", "Superseded", "Deprecated", "Rejected")
@@ -106,12 +125,28 @@ WORK_STATES = (
 )
 # Work states that must cite evidence before they may be claimed.
 EVIDENCE_REQUIRED_STATES = ("Implemented", "Tested", "Deployed", "Published")
+# A release-state transition has to be backed by recorded verification evidence.
+RELEASE_PHASES = ("Released",)
+RELEASE_STATES = ("Deployed", "Published")
 
-VERIFIED_START = "<!-- prodoc:verified:start -->"
-VERIFIED_END = "<!-- prodoc:verified:end -->"
+# The managed block records Git metadata that the tool observed. It is
+# deliberately not called "verified": observing a commit says nothing about
+# whether the implementation or its tests are correct.
+OBSERVED_START = "<!-- prodoc:observed:start -->"
+OBSERVED_END = "<!-- prodoc:observed:end -->"
+LEGACY_OBSERVED_START = "<!-- prodoc:verified:start -->"
+LEGACY_OBSERVED_END = "<!-- prodoc:verified:end -->"
+OBSERVED_FIELDS = ("observed branch", "observed commit", "observed working tree", "observed at")
+LEGACY_OBSERVED_FIELDS = ("branch", "commit", "working tree", "verified at")
+OBSERVED_CAVEAT = (
+    "Observed from Git metadata only, by `prodoc update`. This block is not evidence that the "
+    "implementation or its tests are correct; record that under `## Verification Evidence`."
+)
+
 TODO_RE = re.compile(r"<!--\s*prodoc:todo(?::|\s)(.*?)-->", re.DOTALL)
 DECISION_RE = re.compile(r"^###\s+(D-\d{4})\s*[—–:-]\s*(.+?)\s*$")
 FIELD_RE = re.compile(r"^\s*[-*]\s+\*\*([A-Za-z][A-Za-z0-9 /_-]*?)\s*:?\*\*\s*:?\s*(.*)$")
+VERIFICATION_RE = re.compile(r"^\s*[-*]\s+\*\*Verification:\*\*\s*(.*)$")
 H2_RE = re.compile(r"^##\s+(.+?)\s*$")
 H3_RE = re.compile(r"^###\s+(.+?)\s*$")
 WORK_ITEM_RE = re.compile(r"^\s*[-*]\s+\[([A-Za-z ]+)\]\s*(.*)$")
@@ -236,35 +271,112 @@ def sha256_text(text):
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
 
-def write_atomic(path, text, expected_sha=None):
-    """Write text atomically, refusing to clobber a concurrent modification.
+def normalized(value):
+    """Collapse whitespace so reflowing a paragraph is not treated as an edit."""
+    return re.sub(r"\s+", " ", value or "").strip()
 
-    If expected_sha is given, the on-disk file must still hash to it, otherwise
-    we abort rather than overwrite somebody else's edit.
+
+def is_within(path, directory):
+    """True when path resolves to something inside directory."""
+    try:
+        Path(os.path.realpath(str(path))).relative_to(Path(os.path.realpath(str(directory))))
+    except ValueError:
+        return False
+    return True
+
+
+def guard_write_target(path, project_dir):
+    """Refuse to write somewhere the user did not ask us to write.
+
+    Two hazards are blocked here, both of which are silent when they happen:
+
+      * A symlinked document. Writing would either modify a file outside the
+        project or replace the link with a regular file, discarding the link's
+        intent. The user is told which real path to write instead.
+      * A path that resolves outside the selected project directory, whether
+        through a symlinked parent or a crafted path. Nothing is written.
+    """
+    path = Path(path)
+    project = Path(project_dir)
+    if os.path.islink(str(path)):
+        raise ProdocError(
+            "refusing to replace the symbolic link %s (it points at %s); "
+            "write to the real path, or make the document a regular file"
+            % (path, os.path.realpath(str(path))),
+            exit_code=4,
+        )
+    if not is_within(path.parent, project):
+        raise ProdocError(
+            "refusing to write outside the selected project: %s resolves outside %s"
+            % (path.parent, os.path.realpath(str(project))),
+            exit_code=4,
+        )
+    return path
+
+
+def write_atomic(path, text, expected_sha=None):
+    """Write text to path atomically, refusing to clobber a concurrent change.
+
+    Concurrency guarantee, stated precisely:
+
+      * The on-disk file is hashed before the temporary file is created, and the
+        hash is checked again immediately before the rename. A change that lands
+        during the write is detected instead of overwritten.
+      * The rename is atomic (`os.replace`), so a reader never sees a partial
+        document, and a crash leaves either the previous file or the new one.
+      * The written data is flushed and fsynced before the rename, and the file
+        is re-read and compared with the intended content afterwards, so a write
+        that silently failed is reported rather than assumed to have worked.
+
+    Residual limitation: the final hash check and the rename cannot be one atomic
+    operation on POSIX or Windows. A writer that modifies the file in the window
+    between those two syscalls can still be overwritten. Closing that window
+    requires advisory locking, which introduces a stuck-lock failure mode that is
+    worse than a window measured in microseconds for a local documentation tool.
+    The check compares against `HEAD` and is an integrity check, not tamper-proof
+    protection: anyone who can rewrite Git history can also rewrite this block.
     """
     path = Path(path)
     if path.exists() and not os.access(str(path), os.W_OK):
         raise ProdocError("refusing to write read-only file: %s" % path, exit_code=4)
-    if expected_sha is not None:
-        if not path.exists() or sha256_text(read_text(path)) != expected_sha:
+
+    def verify(stage):
+        if expected_sha is None:
+            return
+        if not path.exists():
             raise ProdocError(
-                "concurrent modification detected in %s; re-read and retry" % path,
+                "expected %s to still exist and hash to the recorded value, but it is gone (%s)"
+                % (path, stage),
                 exit_code=4,
             )
-    mode = None
-    if path.exists():
-        mode = stat.S_IMODE(os.stat(str(path)).st_mode)
+        if sha256_text(read_text(path)) != expected_sha:
+            raise ProdocError(
+                "concurrent modification detected in %s (%s); re-read and retry" % (path, stage),
+                exit_code=4,
+            )
+
+    verify("before writing")
+    mode = stat.S_IMODE(os.stat(str(path)).st_mode) if path.exists() else None
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".prodoc-", suffix=".tmp")
     try:
         with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as handle:
             handle.write(text)
+            handle.flush()
+            os.fsync(handle.fileno())
         if mode is not None:
             os.chmod(tmp, mode)
+        verify("before replace")
         os.replace(tmp, str(path))
     except BaseException:
         if os.path.exists(tmp):
             os.unlink(tmp)
         raise
+    if read_text(path) != text:
+        raise ProdocError(
+            "post-write verification failed for %s: the file on disk does not match what was written"
+            % path,
+            exit_code=4,
+        )
 
 
 # --------------------------------------------------------------------------
@@ -390,6 +502,74 @@ def parse_decisions(text):
         if field:
             current["fields"][field.group(1).strip().lower()] = field.group(2).strip()
     return decisions, []
+
+
+def decision_digest(decision):
+    """Canonical digest of a decision record's substance.
+
+    Whitespace is normalized so rewrapping a paragraph is not an edit, and
+    `Status` is excluded because superseding an old record is intended.
+    """
+    parts = [normalized(decision["title"])]
+    for field in DECISION_DIGEST_FIELDS:
+        parts.append("%s=%s" % (field, normalized(decision["fields"].get(field, ""))))
+    return hashlib.sha256("\n".join(parts).encode("utf-8")).hexdigest()
+
+
+def altered_decision_fields(before, after):
+    """Names of the substantive parts that differ between two records."""
+    changed = []
+    if normalized(before["title"]) != normalized(after["title"]):
+        changed.append("title")
+    for field in DECISION_DIGEST_FIELDS:
+        if normalized(before["fields"].get(field, "")) != normalized(after["fields"].get(field, "")):
+            changed.append(field)
+    return changed
+
+
+def parse_verification_entries(text):
+    """Return recorded verification evidence from `## Verification Evidence`.
+
+    Each entry: {line, text, commit, evidence, paths}. A commit identifier and at
+    least one artefact are what separate a claim from a record.
+    """
+    body = section_body(text, "Verification Evidence")
+    if body is None:
+        return []
+    entries = []
+    for offset, line, masked in masked_lines(text):
+        if masked:
+            continue
+        match = VERIFICATION_RE.match(line)
+        if not match:
+            continue
+        payload = match.group(1).strip()
+        commit = HEX_RE.search(payload)
+        quoted = [token.strip() for token in BACKTICK_RE.findall(payload) if token.strip()]
+        urls = URL_RE.findall(payload)
+        entries.append(
+            {
+                "line": offset,
+                "text": payload,
+                "commit": commit.group(1) if commit else None,
+                "evidence": quoted + urls,
+                "paths": [token for token in quoted if re.match(r"^[A-Za-z0-9_.][A-Za-z0-9_./-]*$", token)],
+            }
+        )
+    return entries
+
+
+def release_states_claimed(text):
+    """Work states that assert the project is running somewhere or shipped."""
+    claimed = []
+    body = section_body(text, "Completed Work") or ""
+    for _offset, line, masked in masked_lines(body):
+        if masked:
+            continue
+        match = WORK_ITEM_RE.match(line)
+        if match and match.group(1).strip() in RELEASE_STATES:
+            claimed.append(match.group(1).strip())
+    return claimed
 
 
 # --------------------------------------------------------------------------
@@ -616,8 +796,13 @@ def cmd_init(args, ctx):
     repo = ctx["repo"]
     for doc in CANONICAL_DOCS:
         target = repo / doc
-        if target.exists():
-            actions.append({"file": doc, "action": "kept", "detail": "already present; never overwritten"})
+        if target.exists() or os.path.islink(str(target)):
+            if os.path.islink(str(target)):
+                actions.append(
+                    {"file": doc, "action": "kept", "detail": "existing symbolic link; never replaced"}
+                )
+            else:
+                actions.append({"file": doc, "action": "kept", "detail": "already present; never overwritten"})
             continue
         source = templates_dir / doc
         if not source.is_file():
@@ -628,6 +813,7 @@ def cmd_init(args, ctx):
             continue
         if not os.access(str(repo), os.W_OK):
             raise ProdocError("refusing to write into read-only directory: %s" % repo, exit_code=4)
+        guard_write_target(target, repo)
         write_atomic(target, text, expected_sha=None)
         actions.append({"file": doc, "action": "created", "detail": str(source)})
     created = [a["file"] for a in actions if a["action"] in ("created", "would-create")]
@@ -706,17 +892,43 @@ def _validate_placeholders(doc, text):
 def _validate_sections(doc, text):
     findings = []
     sections, _ = split_sections(text)
-    lower = {name.lower(): name for name in sections}
+    present = set()
+    for name in sections:
+        lower = name.lower()
+        present.add(lower)
+        if lower in SECTION_ALIASES:
+            present.add(SECTION_ALIASES[lower])
+            findings.append(
+                Finding(
+                    "doc.legacy_heading",
+                    "heading '## %s' is deprecated and implies the CLI verified the "
+                    "implementation; rename it to '## %s'"
+                    % (name, SECTION_ALIASES[lower].title()),
+                    "warning",
+                    doc,
+                )
+            )
     for required in REQUIRED_SECTIONS[doc]:
-        if required.lower() not in lower:
+        if required.lower() not in present:
             findings.append(
                 Finding("doc.section", "missing required section '## %s'" % required, "error", doc)
             )
-        elif not first_content_line("\n".join(sections[lower[required.lower()]])):
+        elif not first_content_line("\n".join(sections[_resolve_heading(sections, required)])):
             findings.append(
                 Finding("doc.section", "section '## %s' is empty" % required, "warning", doc)
             )
     return findings
+
+
+def _resolve_heading(sections, required):
+    """Map a required section name onto the heading actually used in the file."""
+    lower = {name.lower(): name for name in sections}
+    if required.lower() in lower:
+        return lower[required.lower()]
+    for alias, canonical in SECTION_ALIASES.items():
+        if canonical == required.lower() and alias in lower:
+            return lower[alias]
+    return required
 
 
 def _validate_decisions(doc, text):
@@ -786,21 +998,37 @@ def _validate_status(doc, text, repo):
                 doc,
             )
         )
-    verified = extract_verified_block(text)
-    if verified is None:
+
+    observed, kind = extract_observed_block(text)
+    if observed is None:
         findings.append(
             Finding(
-                "status.verified",
-                "missing managed verified-state block; run 'prodoc update'",
+                "status.observed_block",
+                "missing managed repository-state block; run 'prodoc update'",
                 "error",
                 doc,
             )
         )
     else:
-        for key in ("branch", "commit", "working tree", "verified at"):
-            if key not in verified:
+        if kind == "legacy":
+            findings.append(
+                Finding(
+                    "status.legacy_block",
+                    "the managed block uses the deprecated 'verified' markers, which imply that "
+                    "observing Git metadata verifies the implementation; run 'prodoc update' to migrate",
+                    "warning",
+                    doc,
+                )
+            )
+        for key in observed_fields_for(kind):
+            if key not in observed:
                 findings.append(
-                    Finding("status.verified", "verified-state block is missing '%s'" % key, "error", doc)
+                    Finding(
+                        "status.observed_block",
+                        "repository-state block is missing '%s'" % key,
+                        "error",
+                        doc,
+                    )
                 )
 
     work_body = section_body(text, "Completed Work") or ""
@@ -833,7 +1061,73 @@ def _validate_status(doc, text, repo):
                     offset,
                 )
             )
+
+    findings.extend(_validate_verification(doc, text, repo, phase))
     findings.extend(_validate_tests(doc, text, repo))
+    return findings
+
+
+def _validate_verification(doc, text, repo, phase):
+    """Check recorded verification evidence, and require it for release claims.
+
+    This is the separation the tool is for: the observed block says what Git saw,
+    and this section says what a human actually verified. A release-state claim
+    needs the latter, not the former.
+    """
+    findings = []
+    entries = parse_verification_entries(text)
+    for entry in entries:
+        if not entry["commit"]:
+            findings.append(
+                Finding(
+                    "status.verification.commit",
+                    "verification entry has no commit identifier: %s" % entry["text"][:70],
+                    "error",
+                    doc,
+                    entry["line"],
+                )
+            )
+        if not entry["evidence"]:
+            findings.append(
+                Finding(
+                    "status.verification.evidence",
+                    "verification entry cites no artefact (a path in backticks or a URL): %s"
+                    % entry["text"][:70],
+                    "error",
+                    doc,
+                    entry["line"],
+                )
+            )
+        for token in entry["paths"]:
+            if "/" not in token and not token.endswith((".md", ".json", ".txt", ".xml", ".log")):
+                continue
+            if not (repo / token).exists():
+                findings.append(
+                    Finding(
+                        "status.verification.evidence_missing",
+                        "verification evidence `%s` does not exist in the repository" % token,
+                        "error",
+                        doc,
+                        entry["line"],
+                    )
+                )
+
+    released_states = release_states_claimed(text)
+    needs_evidence = phase in RELEASE_PHASES or bool(released_states)
+    if needs_evidence and not entries:
+        reason = (
+            "phase is %r" % phase if phase in RELEASE_PHASES else "work is marked %s" % "/".join(released_states)
+        )
+        findings.append(
+            Finding(
+                "status.release_evidence",
+                "a release-state claim requires recorded verification evidence (%s); add a "
+                "'- **Verification:** commit <sha> ... evidence `<path>`' line under "
+                "'## Verification Evidence'" % reason,
+                "error",
+                doc,
+            )
+        )
     return findings
 
 
@@ -924,18 +1218,33 @@ def _validate_tests(doc, text, repo):
     return findings
 
 
-def extract_verified_block(text):
-    start = text.find(VERIFIED_START)
-    end = text.find(VERIFIED_END)
-    if start == -1 or end == -1 or end < start:
-        return None
-    block = text[start + len(VERIFIED_START) : end]
-    values = {}
-    for line in block.splitlines():
-        match = FIELD_RE.match(line)
-        if match:
-            values[match.group(1).strip().lower()] = match.group(2).strip().strip("*`")
-    return values
+def extract_observed_block(text):
+    """Return (values, kind) for the managed Git-metadata block.
+
+    kind is "observed" for the current markers, "legacy" for the older
+    `prodoc:verified` markers still found in existing projects, or None when no
+    block is present at all.
+    """
+    for start_marker, end_marker, kind in (
+        (OBSERVED_START, OBSERVED_END, "observed"),
+        (LEGACY_OBSERVED_START, LEGACY_OBSERVED_END, "legacy"),
+    ):
+        start = text.find(start_marker)
+        end = text.find(end_marker)
+        if start == -1 or end == -1 or end < start:
+            continue
+        block = text[start + len(start_marker) : end]
+        values = {}
+        for line in block.splitlines():
+            match = FIELD_RE.match(line)
+            if match:
+                values[match.group(1).strip().lower()] = match.group(2).strip().strip("*`")
+        return values, kind
+    return None, None
+
+
+def observed_fields_for(kind):
+    return LEGACY_OBSERVED_FIELDS if kind == "legacy" else OBSERVED_FIELDS
 
 
 # --------------------------------------------------------------------------
@@ -1006,7 +1315,10 @@ def cmd_status(args, ctx):
             entry["bytes"] = len(text.encode("utf-8"))
             if doc == "PROJECT_STATUS.md":
                 entry["phase"] = first_content_line(section_body(text, "Current Phase") or "")
-                entry["verified"] = extract_verified_block(text)
+                values, kind = extract_observed_block(text)
+                entry["observed"] = values
+                entry["observed_block_kind"] = kind
+                entry["verification_entries"] = len(parse_verification_entries(text))
                 entry["tests"] = split_table_rows(section_body(text, "Tests") or "")
         info["documents"][doc] = entry
     return {
@@ -1054,14 +1366,23 @@ def cmd_check(args, ctx):
                     )
     info["checks"].append("secret-scan")
 
-    # 2. append-only decision history vs HEAD
+    # 2. decision history integrity vs HEAD
+    #
+    #    This is an integrity check, not tamper-proof protection. It compares the
+    #    working tree against the current HEAD, so it catches an edited, deleted,
+    #    or reordered record before it is committed. Anyone able to rewrite Git
+    #    history (amend, rebase, filter-branch) can also rewrite this comparison's
+    #    baseline, and the CLI cannot detect that.
     root = git_root(repo)
     if root is not None and (root / "DECISION_LOG.md").is_file():
         rc, committed, _ = git(["show", "HEAD:DECISION_LOG.md"], cwd=root)
         if rc == 0:
-            committed_ids = {d["id"] for d in parse_decisions(committed)[0]}
-            current_ids = {d["id"] for d in parse_decisions(read_text(root / "DECISION_LOG.md"))[0]}
-            removed = sorted(committed_ids - current_ids)
+            committed_records = parse_decisions(committed)[0]
+            current_records = parse_decisions(read_text(root / "DECISION_LOG.md"))[0]
+            committed_by_id = {d["id"]: d for d in committed_records}
+            current_by_id = {d["id"]: d for d in current_records}
+
+            removed = sorted(set(committed_by_id) - set(current_by_id))
             if removed:
                 findings.append(
                     Finding(
@@ -1072,10 +1393,56 @@ def cmd_check(args, ctx):
                         "DECISION_LOG.md",
                     )
                 )
-            info["checks"].append("append-only")
+
+            committed_order = [d["id"] for d in committed_records]
+            current_order = [d["id"] for d in current_records]
+            if current_order[: len(committed_order)] != committed_order:
+                findings.append(
+                    Finding(
+                        "log.reordered",
+                        "decision records have been reordered; history at HEAD is %s but the "
+                        "working tree starts %s"
+                        % (", ".join(committed_order) or "(none)", ", ".join(current_order[: len(committed_order)]) or "(none)"),
+                        "error",
+                        "DECISION_LOG.md",
+                    )
+                )
+
+            for decision_id, before in committed_by_id.items():
+                after = current_by_id.get(decision_id)
+                if after is None:
+                    continue  # reported as removed above
+                changed = altered_decision_fields(before, after)
+                if changed:
+                    findings.append(
+                        Finding(
+                            "log.modified",
+                            "decision %s has been altered (%s); history is append-only — revert the "
+                            "change or supersede the record with a new one"
+                            % (decision_id, ", ".join(changed)),
+                            "error",
+                            "DECISION_LOG.md",
+                            after["line"],
+                        )
+                    )
+                    continue
+                before_status = normalized(before["fields"].get("status", ""))
+                after_status = normalized(after["fields"].get("status", ""))
+                if before_status != after_status:
+                    findings.append(
+                        Finding(
+                            "log.status_changed",
+                            "decision %s status changed from %r to %r; allowed, and reported so it "
+                            "is visible in review" % (decision_id, before_status, after_status),
+                            "warning",
+                            "DECISION_LOG.md",
+                            after["line"],
+                        )
+                    )
+            info["checks"].append("decision-history")
         else:
             findings.append(
-                Finding("log.no_history", "DECISION_LOG.md is not committed yet; append-only check skipped", "info")
+                Finding("log.no_history", "DECISION_LOG.md is not committed yet; history check skipped", "info")
             )
     else:
         findings.append(
@@ -1086,7 +1453,7 @@ def cmd_check(args, ctx):
             )
         )
 
-    # 3. verified state against the real repository
+    # 3. observed block against the real repository
     status_path = repo / "PROJECT_STATUS.md"
     head_info = {}
     if root is not None:
@@ -1098,9 +1465,18 @@ def cmd_check(args, ctx):
             head_info["branch"] = branch_name
     if status_path.is_file():
         text = read_text(status_path)
-        verified = extract_verified_block(text)
-        if verified:
-            commit = verified.get("commit", "")
+        observed, kind = extract_observed_block(text)
+        if observed:
+            if kind == "legacy":
+                findings.append(
+                    Finding(
+                        "status.legacy_block",
+                        "the managed block uses the deprecated 'verified' markers; run 'prodoc update'",
+                        "warning",
+                        "PROJECT_STATUS.md",
+                    )
+                )
+            commit = observed.get("observed commit") or observed.get("commit") or ""
             if commit and commit != "-" and root is not None:
                 rc, _, _ = git(["rev-parse", "--verify", "%s^{commit}" % commit], cwd=root)
                 if rc != 0:
@@ -1122,7 +1498,7 @@ def cmd_check(args, ctx):
                             "PROJECT_STATUS.md",
                         )
                     )
-            branch = verified.get("branch", "")
+            branch = observed.get("observed branch") or observed.get("branch") or ""
             if branch and branch != "-" and head_info.get("branch") and branch != head_info["branch"]:
                 findings.append(
                     Finding(
@@ -1133,7 +1509,25 @@ def cmd_check(args, ctx):
                         "PROJECT_STATUS.md",
                     )
                 )
-        info["checks"].append("verified-state")
+        info["checks"].append("observed-state")
+
+        # 3b. recorded verification evidence must point at a real commit
+        for entry in parse_verification_entries(text):
+            if not entry["commit"] or root is None:
+                continue
+            rc, _, _ = git(["rev-parse", "--verify", "%s^{commit}" % entry["commit"]], cwd=root)
+            if rc != 0:
+                findings.append(
+                    Finding(
+                        "status.verification_commit_unknown",
+                        "verification evidence cites commit %s, which does not exist in this repository"
+                        % redact(entry["commit"], 7),
+                        "error",
+                        "PROJECT_STATUS.md",
+                        entry["line"],
+                    )
+                )
+        info["checks"].append("verification-evidence")
 
     # 4. paths cited as evidence must exist
     #    Only claim sites are scanned: work items, and the Evidence column of the
@@ -1183,34 +1577,59 @@ def cmd_check(args, ctx):
 
 
 def cmd_update(args, ctx):
+    """Refresh the managed block that records Git metadata.
+
+    This observes a branch, a commit, tree state and a timestamp. It does not run
+    or verify tests and says nothing about whether the implementation is correct;
+    that belongs in `## Verification Evidence`, which this command never writes.
+    """
     repo = ctx["repo"]
     status_path = repo / "PROJECT_STATUS.md"
     if not status_path.is_file():
         raise ProdocError("PROJECT_STATUS.md not found in %s; run 'prodoc init'" % repo, exit_code=3)
     findings = []
     original = read_text(status_path)
-    if VERIFIED_START not in original or VERIFIED_END not in original:
+    if OBSERVED_START not in original and LEGACY_OBSERVED_START not in original:
         raise ProdocError(
-            "PROJECT_STATUS.md has no managed verified-state block (%s ... %s)"
-            % (VERIFIED_START, VERIFIED_END),
+            "PROJECT_STATUS.md has no managed repository-state block; expected %s or the "
+            "legacy %s" % (OBSERVED_START, LEGACY_OBSERVED_START),
             exit_code=1,
         )
+    legacy = OBSERVED_START not in original
+
+    if args.phase:
+        if args.phase not in PHASES:
+            raise ProdocError("--phase must be one of: %s" % ", ".join(PHASES), exit_code=2)
+        if args.phase in RELEASE_PHASES:
+            entries = parse_verification_entries(original)
+            if not entries:
+                raise ProdocError(
+                    "refusing to mark the project %r: a release-state transition requires recorded "
+                    "verification evidence under '## Verification Evidence' (a commit identifier and "
+                    "an artefact). `prodoc update` observes Git metadata and cannot supply it."
+                    % args.phase,
+                    exit_code=1,
+                )
 
     root = git_root(repo)
-    facts = {"branch": "-", "commit": "-", "working tree": "unknown"}
+    observed = {"observed branch": "-", "observed commit": "-", "observed working tree": "unknown"}
     if root is None:
         findings.append(
-            Finding("git.none", "no Git working tree; verified state records '-' placeholders", "warning")
+            Finding(
+                "git.none",
+                "no Git working tree; the observed block records '-' placeholders",
+                "warning",
+            )
         )
     else:
         rc, commit, _ = git(["rev-parse", "HEAD"], cwd=root)
         if rc == 0:
-            facts["commit"] = commit
+            observed["observed commit"] = commit
         else:
             findings.append(Finding("update.no_commits", "repository has no commits yet", "warning"))
         branch, detached = git_branch(root)
         if detached:
-            facts["branch"] = "detached-head"
+            observed["observed branch"] = "detached-head"
             findings.append(
                 Finding(
                     "git.detached",
@@ -1219,52 +1638,82 @@ def cmd_update(args, ctx):
                 )
             )
         elif branch:
-            facts["branch"] = branch
+            observed["observed branch"] = branch
         rc, porcelain, _ = git(["status", "--porcelain"], cwd=root)
         if rc == 0:
-            facts["working tree"] = "dirty" if porcelain.strip() else "clean"
-    facts["verified at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+            observed["observed working tree"] = "dirty" if porcelain.strip() else "clean"
+    observed["observed at"] = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
     block = "\n".join(
         [
-            VERIFIED_START,
-            "- **Branch:** %s" % facts["branch"],
-            "- **Commit:** %s" % facts["commit"],
-            "- **Working tree:** %s" % facts["working tree"],
-            "- **Verified at:** %s" % facts["verified at"],
-            VERIFIED_END,
+            OBSERVED_START,
+            "<!-- %s -->" % OBSERVED_CAVEAT,
+            "- **Observed branch:** %s" % observed["observed branch"],
+            "- **Observed commit:** %s" % observed["observed commit"],
+            "- **Observed working tree:** %s" % observed["observed working tree"],
+            "- **Observed at:** %s" % observed["observed at"],
+            OBSERVED_END,
         ]
     )
-    pattern = re.compile(re.escape(VERIFIED_START) + r".*?" + re.escape(VERIFIED_END), re.DOTALL)
+    pattern = re.compile(
+        "(?:%s|%s).*?(?:%s|%s)"
+        % (
+            re.escape(OBSERVED_START),
+            re.escape(LEGACY_OBSERVED_START),
+            re.escape(OBSERVED_END),
+            re.escape(LEGACY_OBSERVED_END),
+        ),
+        re.DOTALL,
+    )
+    if not pattern.search(original):
+        raise ProdocError(
+            "PROJECT_STATUS.md has an unterminated managed block; both markers of one kind are required",
+            exit_code=1,
+        )
     updated = pattern.sub(lambda _match: block, original, count=1)
 
-    if args.phase:
-        if args.phase not in PHASES:
-            raise ProdocError(
-                "--phase must be one of: %s" % ", ".join(PHASES), exit_code=2
+    if legacy:
+        findings.append(
+            Finding(
+                "update.migrated",
+                "replaced the deprecated 'verified' markers and field names with observed-state ones",
+                "info",
             )
+        )
+
+    if args.phase:
         updated = _set_phase(updated, args.phase)
 
     if updated == original:
-        findings.append(Finding("update.noop", "verified state already current; no change written", "info"))
+        findings.append(
+            Finding("update.noop", "observed state already current; no change written", "info")
+        )
 
+    result_info = {
+        "repo": str(repo),
+        "dry_run": bool(args.dry_run),
+        "observed": observed,
+        "changed": updated != original,
+        "caveat": OBSERVED_CAVEAT,
+    }
     if args.dry_run:
         return {
             "command": "update",
             "ok": True,
             "exit_code": 0,
             "findings": findings,
-            "info": {"repo": str(repo), "dry_run": True, "facts": facts, "changed": updated != original},
+            "info": result_info,
         }
 
     if updated != original:
+        guard_write_target(status_path, repo)
         write_atomic(status_path, updated, expected_sha=sha256_text(original))
     return {
         "command": "update",
         "ok": True,
         "exit_code": 0,
         "findings": findings,
-        "info": {"repo": str(repo), "dry_run": False, "facts": facts, "changed": updated != original},
+        "info": result_info,
     }
 
 
@@ -1353,15 +1802,19 @@ def emit(result, args):
                 extra = "  phase=%s" % entry["phase"]
             lines.append("  %-24s %s%s" % (doc, marker, extra))
     if result["command"] == "update":
-        facts = info.get("facts", {})
+        observed = info.get("observed", {})
         lines.append(
-            "  branch=%s commit=%s tree=%s verified_at=%s"
+            "  observed branch=%s commit=%s tree=%s at=%s"
             % (
-                facts.get("branch"),
-                (facts.get("commit") or "")[:12],
-                facts.get("working tree"),
-                facts.get("verified at"),
+                observed.get("observed branch"),
+                (observed.get("observed commit") or "")[:12],
+                observed.get("observed working tree"),
+                observed.get("observed at"),
             )
+        )
+        lines.append(
+            "  note: Git metadata only. This is not verification of the implementation or its "
+            "tests; that lives under '## Verification Evidence'."
         )
         if info.get("dry_run"):
             lines.append("  dry run: no files written")
@@ -1418,7 +1871,9 @@ def build_parser():
     check = subparsers.add_parser("check", help="check consistency, evidence and secrets")
     add_common(check)
 
-    update = subparsers.add_parser("update", help="refresh the managed verified-state block")
+    update = subparsers.add_parser(
+        "update", help="refresh the observed repository-state block (Git metadata only)"
+    )
     add_common(update)
     update.add_argument("--dry-run", action="store_true", help="preview without writing")
     update.add_argument("--phase", default=None, help="explicitly set the project phase")
@@ -1430,13 +1885,18 @@ def resolve_project_dir(repo):
     """Prefer the directory that actually holds the canonical documents.
 
     Running a command from a subdirectory should still find the project's
-    documents. The redirect only happens when documents exist somewhere else, so
-    `init` in an empty directory still creates them where the user asked.
+    documents. The redirect only happens when documents exist elsewhere *and* the
+    selected directory is inside that same Git worktree, so a nested repository or
+    an unrelated tree is never reached into: if `repo` belongs to an inner
+    repository, `git_root` returns the inner root and the outer project is not a
+    candidate. `init` never redirects, so it writes where the user asked.
     """
-    if any((repo / doc).is_file() for doc in CANONICAL_DOCS):
+    if any((repo / doc).is_file() or os.path.islink(str(repo / doc)) for doc in CANONICAL_DOCS):
         return repo, False
     root = git_root(repo)
-    if root is not None and root != repo and any((root / doc).is_file() for doc in CANONICAL_DOCS):
+    if root is None or root == repo or not is_within(repo, root):
+        return repo, False
+    if any((root / doc).is_file() for doc in CANONICAL_DOCS):
         return root, True
     return repo, False
 

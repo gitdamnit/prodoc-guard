@@ -58,6 +58,15 @@ memory.
 | FR-17 | A compatibility matrix distinguishes verified, unverified, unsupported and planned integrations across the supported clients | `docs/COMPATIBILITY.md` contains all four labels and names OpenCode, Codex, Claude Code, Cursor, GitHub Copilot, Gemini CLI and ChatGPT |
 | FR-18 | Client-specific differences are handled by install instructions or documented local adapters, never by forking the core | No per-client code path exists; adapters are local copy edits, and a test asserts it |
 | FR-19 | The tool runs without any agent, manually and in CI/CD | Every command runs from a shell; CI runs them, and the suite needs no client |
+| FR-20 | Edits to existing decision records are detected, not only deletions | `prodoc check` exits 1 naming the record and the fields changed when a record's title or substantive fields differ from HEAD |
+| FR-21 | Record reordering is detected | `prodoc check` exits 1 when the sequence of decision IDs diverges from HEAD |
+| FR-22 | Observed Git metadata is presented as observation, never as verification | The managed block, its fields and its section use observed-language and carry a caveat; `prodoc update` writes no verification evidence |
+| FR-23 | Verification evidence is recorded by a human with a commit and an artefact | `prodoc validate` rejects an entry missing either, or citing a non-existent path or commit |
+| FR-24 | Release-state transitions require recorded evidence | A `Released` phase or a `Deployed`/`Published` item without a verification entry is an error, and `prodoc update --phase Released` refuses |
+| FR-25 | Writes through symbolic links, or outside the selected project, are refused | `prodoc update`/`init` exit 4 and write nothing, naming the real path |
+| FR-26 | Running the test suite does not modify the working tree by default | Results go to an untracked directory; `docs/` is only written with an explicit flag |
+| FR-27 | Committed test evidence is never overwritten silently | `--update-evidence` exits 2 without `--force`, naming the files at risk |
+| FR-28 | Compatibility claims separate specification conformance from runtime testing | The matrix uses both labels, and no client row claims a runtime test without a recorded run |
 
 ## Nonfunctional Requirements
 
@@ -77,6 +86,8 @@ memory.
 | NFR-12 | No vendor SDK, plugin, or runtime dependency in the core | Import allowlist enforced by test: standard library only |
 | NFR-13 | No claim of guaranteed skill activation in any environment | Every document states that clients may decline to invoke a skill; no wording asserts otherwise |
 | NFR-14 | Installation is a copy, not a build or an install step | The portable path `.agents/skills/prodoc-guard/` is documented and requires no package manager |
+| NFR-15 | The concurrency guarantee is stated precisely, including what it does not cover | `references/security.md` documents double hashing, atomic rename, and the residual syscall-scale window |
+| NFR-16 | The integrity guarantee is not overstated | Every document that mentions the decision-history check states that rewritten history defeats it |
 
 ## Scope and Exclusions
 
@@ -128,10 +139,12 @@ v0.1.0 is complete when all of the following hold on the tagged commit:
 6. The repository contains no detected credentials in the canonical documents.
 7. The GitHub Actions workflow passes on a pull request against the default branch.
 8. The shipped scripts import only the standard library, asserted by an automated test.
-9. `docs/COMPATIBILITY.md` names every supported client and labels each integration
-   verified, unverified, unsupported, or planned, with no row claiming live
-   activation testing.
-10. No document claims guaranteed automatic activation in any product.
+9. Decision-history integrity has regression tests for altered records that keep their IDs, reordering, and status-only changes.
+10. Running `python3 tests/run_tests.py` leaves the working tree clean.
+11. No client is labelled `Runtime-tested` without a recorded discovery-and-invocation run.
+12. `docs/COMPATIBILITY.md` names every supported client and labels each integration
+    specification-conformant, runtime-tested, unverified, unsupported, or planned.
+13. No document claims guaranteed automatic activation in any product.
 
 ## Release Objectives
 

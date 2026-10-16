@@ -7,6 +7,7 @@ ambiguous, when you are unsure whether work may be claimed, or when a check fail
 ## Contents
 
 - [Authority](#authority)
+- [Observation versus verification](#observation-versus-verification)
 - [Phase vocabulary](#phase-vocabulary)
 - [Work state vocabulary](#work-state-vocabulary)
 - [Evidence rules](#evidence-rules)
@@ -28,6 +29,30 @@ The Git repository is the source of truth. In order:
 If documents disagree with each other, the requirements win for *intent* and the
 repository's actual state wins for *fact*. Report the conflict; do not paper over
 it.
+
+## Observation versus verification
+
+`PROJECT_STATUS.md` holds two different things and they must never be blended:
+
+| Section | Written by | Says | Does **not** say |
+| --- | --- | --- | --- |
+| `## Repository State` | `prodoc update` (machine) | Which branch, commit and tree state Git reported, and when | That anything works, was built, or was tested |
+| `## Verification Evidence` | A human | What was verified, at which commit, with which artefact | How the repository is currently configured |
+| `## Tests` | A human | Which suites were run, with what result, and where the output is | Whether the implementation is correct |
+
+Rules that follow from the split:
+
+- Never treat the observed block as evidence. `prodoc update` runs no tests and
+  reads no code; it records a commit and a timestamp.
+- A verification entry needs a **commit identifier** and an **artefact** (a
+  backticked path that exists, or a URL). `prodoc validate` rejects an entry
+  without either, and `prodoc check` rejects an entry citing a commit that does
+  not exist in the repository.
+- A release-state claim requires verification evidence. If `## Current Phase` is
+  `Released`, or any work item is `[Deployed]` or `[Published]`, the document must
+  contain at least one verification entry, and `prodoc update --phase Released`
+  refuses to make that transition without one.
+- Evidence is written by hand. No command generates it, and none should.
 
 ## Phase vocabulary
 
@@ -151,8 +176,9 @@ Rules:
 | Requirement changed | Edit `PRODUCT_REQUIREMENTS.md`; log the decision |
 | Code committed or saved | `prodoc update`; move the item to `Implemented` |
 | Tests executed | Record the row in `## Tests` with evidence |
+| Something verified by hand | Add a `## Verification Evidence` entry with commit and artefact |
 | Blocked | Add to `## Blockers`; set phase if the whole project is blocked |
-| Deployed or released | `prodoc update --phase`; move the item to `Deployed`/`Published` |
+| Deployed or released | Record verification evidence first, then `prodoc update --phase`; move the item to `Deployed`/`Published` |
 | Before reporting to the user | `prodoc validate` and `prodoc check` |
 
 ## Anti-patterns

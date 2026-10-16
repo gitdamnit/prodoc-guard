@@ -160,7 +160,7 @@ python3 scripts/prodoc status
 # check consistency: append-only history, verified commit, claims, secrets
 python3 scripts/prodoc check
 
-# refresh the machine-maintained verified-state block
+# refresh the machine-maintained observed repository-state block (Git metadata only)
 python3 scripts/prodoc update --phase "In Progress"
 ```
 
@@ -171,6 +171,19 @@ target or concurrent modification).
 
 A freshly initialized project fails `validate` **on purpose**: template
 placeholders are missing information, and the CLI names every one.
+
+Two things are kept apart on purpose. `prodoc update` records **observed** Git
+metadata — branch, commit, tree state, timestamp — and says nothing about whether
+anything works. What was actually checked goes in `## Verification Evidence`, by
+hand, with a commit and an artefact:
+
+```markdown
+- **Verification:** commit `a1b2c3d` — full suite green (148 tests) — evidence `docs/test-results.json`
+```
+
+A release-state claim (phase `Released`, or a `[Deployed]`/`[Published]` item)
+is rejected without at least one such entry, and `prodoc update --phase Released`
+refuses to make that transition without one.
 
 Install it on your `PATH` if you prefer a bare command:
 
@@ -229,6 +242,8 @@ chmod +x .git/hooks/pre-commit
 - It does not require an account, subscription, or model API.
 - It does not overwrite existing documents or uncommitted changes.
 - It does not ship vendor plugins, vendor SDKs, or per-client forks of the core.
+- It does not write through symbolic links, or outside the project you point it at.
+- It does not describe observed Git metadata as verification of anything.
 - It does not claim that any client will activate it automatically.
 
 Read [references/security.md](references/security.md) for the full model, and
@@ -237,23 +252,33 @@ Read [references/security.md](references/security.md) for the full model, and
 ## Test evidence
 
 ```bash
-python3 tests/run_tests.py
+python3 tests/run_tests.py                      # results to test-output/ (untracked)
+python3 tests/run_tests.py --pattern test_cli.py  # a subset
 ```
 
-This runs every test against a disposable Git repository with an isolated `HOME`,
-then runs the document gates and writes:
+Every test runs against a disposable Git repository with an isolated `HOME`, so
+verifying the project does not modify it. Results go to `test-output/`, which is
+gitignored; use `--output DIR` to put them elsewhere.
 
-- [`docs/test-results.json`](docs/test-results.json) — machine-readable results
-- [`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) — human-readable evidence
+The committed evidence cited from `PROJECT_STATUS.md` is refreshed explicitly,
+and never overwritten silently:
 
-The current state of both files is the honest answer to "what is tested?".
+```bash
+python3 tests/run_tests.py --update-evidence            # refuses: evidence exists
+python3 tests/run_tests.py --update-evidence --force    # replaces docs/ evidence
+```
+
+The current state of [`docs/test-results.json`](docs/test-results.json) and
+[`docs/TEST_REPORT.md`](docs/TEST_REPORT.md) is the honest answer to "what is
+tested?", and it is refreshed deliberately rather than as a side effect of running
+the suite.
 
 ## Documentation
 
 | Document | Contents |
 | --- | --- |
 | [SKILL.md](SKILL.md) | The skill instructions |
-| [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) | Compatibility matrix: verified, unverified, unsupported and planned integrations |
+| [docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) | Compatibility matrix: specification-conformant, runtime-tested, unverified, unsupported and planned integrations |
 | [references/status-rules.md](references/status-rules.md) | Status vocabulary, evidence rules, anti-patterns |
 | [references/security.md](references/security.md) | Threat model and safety guarantees |
 | [references/github-workflow.md](references/github-workflow.md) | Git, remote, PR and release mechanics |

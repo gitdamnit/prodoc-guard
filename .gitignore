@@ -21,3 +21,6 @@ Thumbs.db
 # Local agent/skill installs (install paths, not sources)
 .opencode/skills/prodoc-guard/
 .claude/skills/prodoc-guard/
+
+# Test runner scratch output (untracked by design)
+test-output/

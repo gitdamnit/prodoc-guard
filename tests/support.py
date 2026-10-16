@@ -156,11 +156,44 @@ def valid_decision_log(with_decision=True, decision_id="D-0001"):
     return "\n".join(body)
 
 
-def valid_project_status(phase="Planning", commit="-", tree="unknown", tests_rows=None, work=None):
+def valid_project_status(
+    phase="Planning",
+    commit="-",
+    tree="unknown",
+    tests_rows=None,
+    work=None,
+    verification=None,
+    legacy=False,
+):
+    """A structurally valid PROJECT_STATUS.md.
+
+    legacy=True emits the deprecated heading, markers and field names, so the
+    migration and deprecation paths can be exercised.
+    """
     if tests_rows is None:
         tests_rows = ["| none | - | Not run | - |"]
     if work is None:
         work = ["- [Planned] Fixture work item"]
+    if verification is None:
+        verification = []
+    if legacy:
+        state_heading = "Verified State"
+        start, end = "<!-- prodoc:verified:start -->", "<!-- prodoc:verified:end -->"
+        state_fields = [
+            "- **Branch:** %s" % ("-" if commit == "-" else "main"),
+            "- **Commit:** %s" % commit,
+            "- **Working tree:** %s" % tree,
+            "- **Verified at:** 2026-01-01T00:00:00Z",
+        ]
+    else:
+        state_heading = "Repository State"
+        start, end = "<!-- prodoc:observed:start -->", "<!-- prodoc:observed:end -->"
+        state_fields = [
+            "- **Observed branch:** %s" % ("-" if commit == "-" else "main"),
+            "- **Observed commit:** %s" % commit,
+            "- **Observed working tree:** %s" % tree,
+            "- **Observed at:** 2026-01-01T00:00:00Z",
+        ]
     body = [
         "# Project Status",
         "",
@@ -168,14 +201,15 @@ def valid_project_status(phase="Planning", commit="-", tree="unknown", tests_row
         "",
         phase,
         "",
-        "## Verified State",
+        "## %s" % state_heading,
         "",
-        "<!-- prodoc:verified:start -->",
-        "- **Branch:** %s" % ("-" if commit == "-" else "main"),
-        "- **Commit:** %s" % commit,
-        "- **Working tree:** %s" % tree,
-        "- **Verified at:** 2026-01-01T00:00:00Z",
-        "<!-- prodoc:verified:end -->",
+        start,
+        *state_fields,
+        end,
+        "",
+        "## Verification Evidence",
+        "",
+        *(verification or ["_No verification recorded yet._"]),
         "",
         "## Completed Work",
         "",
@@ -243,6 +277,10 @@ class RepoCase(unittest.TestCase):
     # -- git -------------------------------------------------------------
     def git(self, *args, **kwargs):
         return run_git(args, self.repo, self.env, **kwargs)
+
+    def git_in(self, directory, *args, **kwargs):
+        """Run git in another directory (nested repositories, worktrees)."""
+        return run_git(args, Path(directory), self.env, **kwargs)
 
     def commit_all(self, message="chore: fixture"):
         self.git("add", "-A")

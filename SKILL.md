@@ -99,15 +99,29 @@ and anything a future contributor would otherwise re-litigate. Use the next free
 `D-NNNN` id, and fill Context, Alternatives Considered, Decision, Rationale,
 Consequences. Never edit or delete a past record.
 
-**Status.** Update `PROJECT_STATUS.md` when a milestone is confirmed — code
-merged or saved, tests actually run, a deployment or release completed. Refresh
-the machine-maintained block from real Git facts:
+**Status.** Two sections, two authors, never blended:
+
+- `## Repository State` is machine-maintained. Refresh it from Git:
 
 ```bash
 python3 scripts/prodoc update --dry-run          # preview
-python3 scripts/prodoc update                    # rewrite only the verified block
+python3 scripts/prodoc update                    # rewrite only the observed block
 python3 scripts/prodoc update --phase "In Progress"
 ```
+
+  `prodoc update` observes a branch, commit, tree state and timestamp. It runs no
+  tests and reads no code. Never describe its output as verification.
+
+- `## Verification Evidence` is written by hand, one line per thing actually
+  verified, each with a commit identifier and an artefact:
+
+```markdown
+- **Verification:** commit `a1b2c3d` — full suite green (100 tests) — evidence `docs/test-results.json`
+```
+
+  A release-state claim — phase `Released`, or a `[Deployed]`/`[Published]` work
+  item — is rejected without at least one entry here, and `prodoc update --phase
+  Released` refuses to make that transition without one.
 
 ### 6. Validate and check
 
@@ -149,7 +163,7 @@ plainly what you did not check. Never claim success you did not observe.
 | --- | --- |
 | `PRODUCT_REQUIREMENTS.md` | Project Identity; Purpose; Intended Users; Functional Requirements; Nonfunctional Requirements; Scope and Exclusions; Technical Constraints; Acceptance Criteria; Release Objectives |
 | `DECISION_LOG.md` | How to Use This Log; Decisions |
-| `PROJECT_STATUS.md` | Current Phase; Verified State; Completed Work; Tests; Known Defects; Blockers; Next Actions; Release Status |
+| `PROJECT_STATUS.md` | Current Phase; Repository State; Verification Evidence; Completed Work; Tests; Known Defects; Blockers; Next Actions; Release Status |
 
 Details, status vocabulary and evidence rules: [references/status-rules.md](references/status-rules.md).
 
@@ -161,6 +175,8 @@ Details, status vocabulary and evidence rules: [references/status-rules.md](refe
   line: a backticked path, a URL, or a commit SHA.
 - The Tests table has four columns: `Suite | Command | Result | Evidence`. A
   `Pass`, `Fail` or `Partial` result needs evidence. `Not run` is honest and fine.
+- Verification entries need a commit and an artefact, and a release-state claim
+  needs at least one entry. Observed Git metadata is never a substitute.
 - `prodoc check` fails on unverifiable claims, so an unevidenced "all tests pass"
   cannot be committed without the checker noticing.
 
@@ -184,8 +200,11 @@ Full policy: [references/security.md](references/security.md).
   `validate` reports them until a human fills them in. Delete the marker with the
   content.
 - `PROJECT_STATUS.md` has one machine-maintained region between
-  `<!-- prodoc:verified:start -->` and `<!-- prodoc:verified:end -->`. Hand-edit
-  everything else; `prodoc update` refuses to run without those markers.
+  `<!-- prodoc:observed:start -->` and `<!-- prodoc:observed:end -->`. Hand-edit
+  everything else; `prodoc update` refuses to run without those markers. Documents
+  written by earlier versions use `prodoc:verified` markers and a `## Verified
+  State` heading; the CLI still accepts them, reports them as deprecated, and
+  `prodoc update` migrates them.
 - Describing an unfilled `prodoc:todo` marker in prose with its comment syntax
   trips the placeholder check, because the checker cannot tell documentation of
   the marker from an actual unfilled marker. Write the marker name without the
@@ -197,6 +216,13 @@ Full policy: [references/security.md](references/security.md).
   documentation commit is expected; the block names the commit that was verified.
 - `prodoc check` scans the three canonical documents for secret patterns and
   redacts matches in its output. A real finding is an error, not a warning.
+- The decision-history check compares the working tree with `HEAD` for deletions,
+  edits to an existing record (title or substantive fields, whitespace ignored),
+  and reordering. It is an integrity check, not tamper-proofing: anyone who can
+  rewrite Git history can rewrite the baseline. Changing an old record's `Status`
+  to `Superseded by D-NNNN` is allowed and reported as a warning.
+- `prodoc` refuses to write to a symbolic link or outside the selected project
+  (exit 4). Do not work around that by hand; fix the layout instead.
 - The skill directory must be named exactly `prodoc-guard`. The specification
   requires `name` to match the parent directory, so cloning into a differently
   named folder makes the skill invalid; `scripts/check_skill.py` reports it.

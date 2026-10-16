@@ -8,7 +8,10 @@ template/section agreement, and the documentation the release depends on.
 
 from __future__ import annotations
 
+import importlib.machinery
+import importlib.util
 import json
+import os
 import re
 import shutil
 import subprocess
@@ -212,10 +215,29 @@ class TemplateContractTests(unittest.TestCase):
 
     def test_status_template_has_a_managed_block(self):
         template = (TEMPLATES / "PROJECT_STATUS.md").read_text(encoding="utf-8")
-        block = self.prodoc.extract_verified_block(template)
+        block, kind = self.prodoc.extract_observed_block(template)
         self.assertIsNotNone(block)
-        for key in ("branch", "commit", "working tree", "verified at"):
+        self.assertEqual(kind, "observed")
+        for key in ("observed branch", "observed commit", "observed working tree", "observed at"):
             self.assertIn(key, block)
+        self.assertIn("not evidence", template)
+
+    def test_status_template_separates_observation_from_verification(self):
+        template = (TEMPLATES / "PROJECT_STATUS.md").read_text(encoding="utf-8")
+        sections = {name.lower() for name in self.prodoc.split_sections(template)[0]}
+        self.assertIn("repository state", sections)
+        self.assertIn("verification evidence", sections)
+        self.assertNotIn("verified state", sections)
+
+    def test_required_sections_avoid_verified_wording(self):
+        for doc, sections in self.prodoc.REQUIRED_SECTIONS.items():
+            for section in sections:
+                self.assertNotIn(
+                    "verified",
+                    section.lower(),
+                    "%s requires a section named %r, which implies the CLI verifies the implementation"
+                    % (doc, section),
+                )
 
 
 class VendorNeutralityTests(unittest.TestCase):
@@ -249,7 +271,7 @@ class VendorNeutralityTests(unittest.TestCase):
         "gemini cli",
         "chatgpt",
     )
-    STATES = ("verified", "unverified", "unsupported", "planned")
+    STATES = ("specification-conformant", "runtime-tested", "unverified", "unsupported", "planned")
 
     #: other projects this repository must stay independent from
     OTHER_PROJECTS = (
@@ -299,10 +321,36 @@ class VendorNeutralityTests(unittest.TestCase):
         for client in self.REQUIRED_CLIENTS:
             self.assertIn(client, text, "compatibility matrix does not mention %s" % client)
 
-    def test_compatibility_matrix_uses_four_states(self):
+    def test_compatibility_matrix_uses_five_states(self):
         text = (REPO_ROOT / "docs" / "COMPATIBILITY.md").read_text(encoding="utf-8")
+        lowered = text.lower()
         for state in self.STATES:
-            self.assertIn("**%s**" % state.capitalize(), text, "status label %r missing" % state)
+            self.assertIn("**%s**" % state.lower(), lowered, "status label %r missing" % state)
+
+    def test_no_client_is_labelled_runtime_tested(self):
+        """A client row may only claim a runtime test if one is recorded."""
+        text = (REPO_ROOT / "docs" / "COMPATIBILITY.md").read_text(encoding="utf-8")
+        matrix = text.split("## Compatibility matrix", 1)[1].split("\n## ", 1)[0]
+        rows = [line for line in matrix.splitlines() if line.startswith("| **")]
+        offenders = [
+            line
+            for line in rows
+            if "**runtime-tested**" in line.lower() and "not by a client" not in line
+        ]
+        for line in offenders:
+            self.assertIn(
+                "docs/runtime",
+                line,
+                "row claims a runtime test without pointing at recorded evidence: %s" % line[:120],
+            )
+
+    def test_compatibility_matrix_separates_conformance_from_runtime(self):
+        text = (REPO_ROOT / "docs" / "COMPATIBILITY.md").read_text(encoding="utf-8")
+        lowered = text.lower()
+        self.assertIn("specification-conformant", lowered)
+        self.assertIn("runtime-tested", lowered)
+        self.assertIn("no client was launched", lowered)
+        self.assertNotIn("**Verified**", text)
 
     def test_portable_install_path_is_documented(self):
         for relative in ("README.md", "docs/COMPATIBILITY.md"):
@@ -341,6 +389,101 @@ class VendorNeutralityTests(unittest.TestCase):
         self.assertIn("opencode/slash", text)
         # and the OpenCode metadata field is described as a local copy edit
         self.assertIn("your local copy", text)
+
+
+class TestRunnerTests(unittest.TestCase):
+    """P2: generated reports must not silently overwrite tracked evidence.
+
+    These tests invoke `run_tests.py`, which would otherwise discover and re-run
+    this class, recursing until the timeout fires. A nested run is therefore
+    tagged with PRODOC_NESTED_TEST_RUN and skips these cases at depth >= 2. This
+    guard also keeps the suite fast: the recursion made a full run take over
+    twelve minutes instead of roughly one.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        loader = importlib.machinery.SourceFileLoader("prodoc_run_tests", str(REPO_ROOT / "tests" / "run_tests.py"))
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        cls.runner = importlib.util.module_from_spec(spec)
+        loader.exec_module(cls.runner)
+
+    def setUp(self):
+        if os.environ.get("PRODOC_NESTED_TEST_RUN"):
+            self.skipTest("already inside a nested test-runner invocation")
+        self.tmp = tempfile.mkdtemp(prefix="prodoc-runner-")
+        self.addCleanup(shutil.rmtree, self.tmp, ignore_errors=True)
+
+    def nested_env(self):
+        env = dict(os.environ)
+        env["PRODOC_NESTED_TEST_RUN"] = "1"
+        return env
+
+    def test_default_output_is_outside_the_tracked_tree(self):
+        json_path, report_path, mode = self.runner.output_paths(REPO_ROOT)
+        self.assertEqual(mode, "scratch")
+        self.assertEqual(json_path.parent.name, self.runner.DEFAULT_OUTPUT_DIRNAME)
+        self.assertNotIn("docs", json_path.parts)
+        self.assertNotIn("docs", report_path.parts)
+
+    def test_default_output_directory_is_gitignored(self):
+        ignored = (REPO_ROOT / ".gitignore").read_text(encoding="utf-8")
+        self.assertIn(self.runner.DEFAULT_OUTPUT_DIRNAME, ignored)
+
+    def test_update_evidence_targets_docs(self):
+        json_path, report_path, mode = self.runner.output_paths(REPO_ROOT, update_evidence=True)
+        self.assertEqual(mode, "evidence")
+        self.assertEqual(json_path, REPO_ROOT / "docs" / "test-results.json")
+        self.assertEqual(report_path, REPO_ROOT / "docs" / "TEST_REPORT.md")
+
+    def test_custom_output_directory_is_honoured(self):
+        target = Path(self.tmp) / "somewhere"
+        json_path, _report, mode = self.runner.output_paths(REPO_ROOT, output_dir=str(target))
+        self.assertEqual(mode, "custom")
+        self.assertEqual(json_path.parent, target)
+
+    def test_overwrite_guard_refuses_existing_evidence(self):
+        existing = Path(self.tmp) / "test-results.json"
+        existing.write_text("{}", encoding="utf-8")
+        message = self.runner.evidence_overwrite_guard([existing], True, False)
+        self.assertIsNotNone(message)
+        self.assertIn("refusing to overwrite", message)
+        self.assertIn("--force", message)
+
+    def test_overwrite_guard_allows_force(self):
+        existing = Path(self.tmp) / "test-results.json"
+        existing.write_text("{}", encoding="utf-8")
+        self.assertIsNone(self.runner.evidence_overwrite_guard([existing], True, True))
+
+    def test_overwrite_guard_ignores_scratch_runs(self):
+        existing = Path(self.tmp) / "test-results.json"
+        existing.write_text("{}", encoding="utf-8")
+        self.assertIsNone(self.runner.evidence_overwrite_guard([existing], False, False))
+
+    def test_runner_default_run_writes_scratch_and_leaves_docs_alone(self):
+        """End to end: a normal run must not modify the tracked evidence."""
+        evidence = REPO_ROOT / "docs" / "test-results.json"
+        before = evidence.read_bytes() if evidence.exists() else None
+        output = Path(self.tmp) / "out"
+        proc = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "tests" / "run_tests.py"),
+             "--quiet", "--no-gates", "--pattern", "test_skill_spec.py", "--output", str(output)],
+            cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=300, env=self.nested_env(),
+        )
+        self.assertEqual(proc.returncode, 0, proc.stdout + proc.stderr)
+        self.assertTrue((output / "test-results.json").is_file())
+        self.assertTrue((output / "TEST_REPORT.md").is_file())
+        after = evidence.read_bytes() if evidence.exists() else None
+        self.assertEqual(before, after, "docs/test-results.json must be untouched")
+
+    def test_update_evidence_without_force_is_refused(self):
+        proc = subprocess.run(
+            [sys.executable, str(REPO_ROOT / "tests" / "run_tests.py"), "--quiet", "--no-gates",
+             "--pattern", "test_skill_spec.py", "--update-evidence"],
+            cwd=str(REPO_ROOT), capture_output=True, text=True, timeout=300, env=self.nested_env(),
+        )
+        self.assertEqual(proc.returncode, 2)
+        self.assertIn("refusing to overwrite", proc.stderr)
 
 
 class RepositoryDocumentationTests(unittest.TestCase):

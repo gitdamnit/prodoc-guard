@@ -19,8 +19,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from support import (  # noqa: E402
-    CLI,
     CANONICAL_DOCS,
+    REPO_ROOT as ROOT,
     RepoCase,
     load_prodoc,
     valid_decision_log,
@@ -29,12 +29,27 @@ from support import (  # noqa: E402
     valid_project_status,
 )
 
-VERIFIED_BLOCK = r"<!-- prodoc:verified:start -->.*?<!-- prodoc:verified:end -->"
+STATE_BLOCK = r"<!-- prodoc:(?:observed|verified):start -->.*?<!-- prodoc:(?:observed|verified):end -->"
 
 
 def fake_aws_key():
     """Assembled at runtime so no scanner has to tolerate a literal in this file."""
     return "AKIA" + "QQ7XZ5RT81N4M6L2"
+
+
+def two_decision_log():
+    """The base fixture plus D-0002, for append-only and mutation tests."""
+    return valid_decision_log() + (
+        "\n### D-0002 — Second fixture decision\n\n"
+        "- **Date:** 2026-01-02\n"
+        "- **Status:** Accepted\n"
+        "- **Context:** second\n"
+        "- **Alternatives Considered:** none\n"
+        "- **Decision:** also do\n"
+        "- **Rationale:** reasons\n"
+        "- **Consequences:** more\n"
+        "- **Supersedes:** None\n"
+    )
 
 
 class InitTests(RepoCase):
@@ -324,33 +339,151 @@ class CheckTests(RepoCase):
         self.assertNotIn("security.secret", self.codes(payload))
 
     def test_append_only_violation_is_detected(self):
-        two = valid_decision_log() + (
-            "\n### D-0002 — Second fixture decision\n\n"
-            "- **Date:** 2026-01-02\n"
-            "- **Status:** Accepted\n"
-            "- **Context:** second\n"
-            "- **Alternatives Considered:** none\n"
-            "- **Decision:** also do\n"
-            "- **Rationale:** reasons\n"
-            "- **Consequences:** more\n"
-            "- **Supersedes:** None\n"
-        )
+        two = two_decision_log()
         docs = valid_docs()
         docs["DECISION_LOG.md"] = two
         self.write_docs(docs)
         self.commit_all("docs: two decisions")
 
-        # silently delete a committed decision
-        rewritten = docs["DECISION_LOG.md"].replace("### D-0002 — Second fixture decision", "### D-0002 — was here")
+        # renaming a record keeps the id: that is a modification, not a deletion
+        rewritten = two.replace("### D-0002 — Second fixture decision", "### D-0002 — was here")
         (self.repo / "DECISION_LOG.md").write_text(rewritten, encoding="utf-8")
         proc, payload = self.cli_json("check")
-        self.assertEqual(proc.returncode, 0, "a rewrite keeps the id; not a violation yet")
+        self.assertEqual(proc.returncode, 1, "a retitle is an edit to history")
+        self.assertIn("log.modified", self.codes(payload, "error"))
+        self.assertNotIn("log.append_only", self.codes(payload, "error"))
 
         deleted = two.split("### D-0002")[0]
         (self.repo / "DECISION_LOG.md").write_text(deleted, encoding="utf-8")
         proc, payload = self.cli_json("check")
         self.assertEqual(proc.returncode, 1)
         self.assertIn("log.append_only", self.codes(payload, "error"))
+
+    def test_altered_decision_with_the_same_id_is_detected(self):
+        """The audit's case: an edit keeps the ID, so a set comparison misses it."""
+        two = two_decision_log()
+        docs = valid_docs()
+        docs["DECISION_LOG.md"] = two
+        self.write_docs(docs)
+        self.commit_all("docs: two decisions")
+
+        tampered = two.replace(
+            "- **Decision:** also do", "- **Decision:** do something else entirely"
+        )
+        self.assertNotEqual(tampered, two)
+        (self.repo / "DECISION_LOG.md").write_text(tampered, encoding="utf-8")
+
+        proc, payload = self.cli_json("check")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("log.modified", self.codes(payload, "error"))
+        messages = " ".join(f["message"] for f in self.errors(payload))
+        self.assertIn("D-0002", messages)
+        self.assertIn("decision", messages)
+
+    def test_altered_decision_field_is_named(self):
+        two = two_decision_log()
+        docs = valid_docs()
+        docs["DECISION_LOG.md"] = two
+        self.write_docs(docs)
+        self.commit_all("docs: two decisions")
+
+        tampered = two.replace("- **Rationale:** reasons", "- **Rationale:** because I said so")
+        (self.repo / "DECISION_LOG.md").write_text(tampered, encoding="utf-8")
+        _proc, payload = self.cli_json("check")
+        self.assertIn("log.modified", self.codes(payload, "error"))
+        self.assertIn("rationale", " ".join(f["message"] for f in self.errors(payload)))
+
+    def test_altered_decision_date_is_detected(self):
+        two = two_decision_log()
+        docs = valid_docs()
+        docs["DECISION_LOG.md"] = two
+        self.write_docs(docs)
+        self.commit_all("docs: two decisions")
+
+        tampered = two.replace("- **Date:** 2026-01-02", "- **Date:** 2025-12-01")
+        (self.repo / "DECISION_LOG.md").write_text(tampered, encoding="utf-8")
+        _proc, payload = self.cli_json("check")
+        self.assertIn("log.modified", self.codes(payload, "error"))
+        self.assertIn("date", " ".join(f["message"] for f in self.errors(payload)))
+
+    def test_reordered_decisions_are_detected(self):
+        two = two_decision_log()
+        docs = valid_docs()
+        docs["DECISION_LOG.md"] = two
+        self.write_docs(docs)
+        self.commit_all("docs: two decisions")
+
+        prefix, rest = two.split("### D-0001", 1)
+        d1_block = "### D-0001" + rest.split("### D-0002")[0]
+        d2_block = "### D-0002" + rest.split("### D-0002")[1]
+        reordered = prefix + d2_block + d1_block
+        (self.repo / "DECISION_LOG.md").write_text(reordered, encoding="utf-8")
+        _proc, payload = self.cli_json("check")
+        self.assertIn("log.reordered", self.codes(payload, "error"))
+
+    def test_reflowing_a_decision_is_not_an_edit(self):
+        """Whitespace normalization keeps harmless rewrapping from failing the check."""
+        two = two_decision_log()
+        docs = valid_docs()
+        docs["DECISION_LOG.md"] = two
+        self.write_docs(docs)
+        self.commit_all("docs: two decisions")
+
+        reflowed = two.replace(
+            "- **Decision:** also do", "- **Decision:**   also    do  "
+        )
+        (self.repo / "DECISION_LOG.md").write_text(reflowed, encoding="utf-8")
+        proc, payload = self.cli_json("check")
+        self.assertEqual(proc.returncode, 0, payload)
+        self.assertNotIn("log.modified", self.codes(payload, "error"))
+
+    def test_status_change_on_an_old_decision_is_allowed_and_reported(self):
+        """Superseding a record is an intended mutation of its Status line."""
+        two = two_decision_log()
+        docs = valid_docs()
+        docs["DECISION_LOG.md"] = two
+        self.write_docs(docs)
+        self.commit_all("docs: two decisions")
+
+        superseded = two.replace(
+            "- **Status:** Accepted\n- **Context:** second",
+            "- **Status:** Superseded by D-0003\n- **Context:** second",
+        )
+        (self.repo / "DECISION_LOG.md").write_text(superseded, encoding="utf-8")
+        proc, payload = self.cli_json("check")
+        self.assertEqual(proc.returncode, 0, payload)
+        self.assertNotIn("log.modified", self.codes(payload, "error"))
+        self.assertIn("log.status_changed", self.codes(payload, "warning"))
+
+    def test_appending_a_decision_after_others_is_accepted(self):
+        two = two_decision_log()
+        docs = valid_docs()
+        docs["DECISION_LOG.md"] = two
+        self.write_docs(docs)
+        self.commit_all("docs: two decisions")
+
+        three = two + (
+            "\n### D-0003 — Third fixture decision\n\n"
+            "- **Date:** 2026-01-03\n"
+            "- **Status:** Accepted\n"
+            "- **Context:** third\n"
+            "- **Alternatives Considered:** none\n"
+            "- **Decision:** append is fine\n"
+            "- **Rationale:** it is the sanctioned path\n"
+            "- **Consequences:** growth\n"
+            "- **Supersedes:** None\n"
+        )
+        (self.repo / "DECISION_LOG.md").write_text(three, encoding="utf-8")
+        proc, payload = self.cli_json("check")
+        self.assertEqual(proc.returncode, 0, payload)
+        self.assertIn("decision-history", payload["info"]["checks"])
+
+    def test_history_check_is_reported_as_an_integrity_check_only(self):
+        """The guarantee is not tamper-proofing, and the docs must say so."""
+        text = (ROOT / "references" / "security.md").read_text(encoding="utf-8")
+        lowered = text.lower()
+        self.assertIn("tamper", lowered)
+        self.assertIn("rewrite", lowered)
 
     def test_unknown_recorded_commit_is_an_error(self):
         docs = valid_docs()
@@ -400,10 +533,10 @@ class UpdateTests(RepoCase):
 
         import re
 
-        strip = lambda t: re.sub(VERIFIED_BLOCK, "", t, flags=re.DOTALL)
+        strip = lambda t: re.sub(STATE_BLOCK, "", t, flags=re.DOTALL)
         self.assertEqual(strip(before), strip(after))
-        self.assertEqual(payload["info"]["facts"]["commit"], sha)
-        self.assertEqual(payload["info"]["facts"]["working tree"], "clean")
+        self.assertEqual(payload["info"]["observed"]["observed commit"], sha)
+        self.assertEqual(payload["info"]["observed"]["observed working tree"], "clean")
         self.assertIn(sha, after)
 
     def test_update_dry_run_writes_nothing(self):
@@ -423,7 +556,7 @@ class UpdateTests(RepoCase):
     def test_update_records_dirty_tree_honestly(self):
         self.write_docs()  # uncommitted: the tree is dirty
         _proc, payload = self.cli_json("update")
-        self.assertEqual(payload["info"]["facts"]["working tree"], "dirty")
+        self.assertEqual(payload["info"]["observed"]["observed working tree"], "dirty")
 
     def test_update_rejects_unknown_phase(self):
         self.write_docs()
@@ -435,14 +568,14 @@ class UpdateTests(RepoCase):
         self.commit_all("docs: fixture")
         proc, payload = self.cli_json("update", "--phase", "In Progress")
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(payload["info"]["facts"]["working tree"], "clean")
+        self.assertEqual(payload["info"]["observed"]["observed working tree"], "clean")
         self.assertIn("In Progress", self.read("PROJECT_STATUS.md"))
 
     def test_update_without_commits_warns_not_fails(self):
         self.write_docs()
         proc, payload = self.cli_json("update")
         self.assertEqual(proc.returncode, 0, proc.stderr)
-        self.assertEqual(payload["info"]["facts"]["commit"], "-")
+        self.assertEqual(payload["info"]["observed"]["observed commit"], "-")
         self.assertIn("update.no_commits", self.codes(payload, "warning"))
 
 
@@ -500,6 +633,342 @@ class SafetyTests(RepoCase):
         self.assertEqual(before, after)
         self.assertEqual(self.git("diff", "--cached", "--name-only").stdout.strip(), "")
         self.assertEqual(self.git("stash", "list").stdout.strip(), "")
+
+
+class VerifiedStateSemanticsTests(RepoCase):
+    """P1: observed Git metadata must not be presented as verification."""
+
+    def test_observed_block_is_labelled_as_observation(self):
+        self.write_docs()
+        _proc, payload = self.cli_json("update")
+        observed = payload["info"]["observed"]
+        for key in ("observed branch", "observed commit", "observed working tree", "observed at"):
+            self.assertIn(key, observed)
+        self.assertNotIn("facts", payload["info"])
+        self.assertNotIn("verified at", observed)
+
+    def test_written_block_uses_observed_markers_and_a_caveat(self):
+        self.write_docs()
+        self.cli("update")
+        text = self.read("PROJECT_STATUS.md")
+        self.assertIn("<!-- prodoc:observed:start -->", text)
+        self.assertIn("<!-- prodoc:observed:end -->", text)
+        self.assertIn("not evidence that the implementation or its tests are correct", text)
+        self.assertNotIn("prodoc:verified:start", text)
+
+    def test_update_output_says_it_is_not_verification(self):
+        self.write_docs()
+        proc = self.cli("update")
+        lowered = proc.stdout.lower()
+        self.assertIn("observed", lowered)
+        self.assertIn("not verification", lowered)
+
+    def test_update_does_not_write_verification_evidence(self):
+        """The command observes Git; it must never invent evidence."""
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status(
+            verification=["- **Verification:** commit `" + "a" * 40 + "` — hand checked — evidence `README.md`"]
+        )
+        self.write_docs(docs)
+        before = self.read("PROJECT_STATUS.md")
+        self.cli("update")
+        after = self.read("PROJECT_STATUS.md")
+        import re as _re
+
+        strip = lambda t: _re.sub(STATE_BLOCK, "", t, flags=_re.DOTALL)
+        self.assertEqual(strip(before), strip(after))
+        self.assertIn("hand checked", after)
+
+    def test_legacy_markers_still_validate_but_are_reported(self):
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status(legacy=True)
+        self.write_docs(docs)
+        proc, payload = self.cli_json("validate")
+        self.assertEqual(proc.returncode, 0, payload)
+        self.assertIn("doc.legacy_heading", self.codes(payload, "warning"))
+        self.assertIn("status.legacy_block", self.codes(payload, "warning"))
+
+    def test_update_migrates_the_legacy_block(self):
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status(legacy=True)
+        self.write_docs(docs)
+        proc, payload = self.cli_json("update")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("update.migrated", self.codes(payload, "info"))
+        text = self.read("PROJECT_STATUS.md")
+        self.assertIn("prodoc:observed:start", text)
+        self.assertNotIn("prodoc:verified:start", text)
+        proc, payload = self.cli_json("validate")
+        self.assertEqual(proc.returncode, 0, payload)
+        self.assertNotIn("status.legacy_block", self.codes(payload))
+
+    def test_missing_observed_block_is_an_error(self):
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status().replace(
+            "<!-- prodoc:observed:start -->", ""
+        ).replace("<!-- prodoc:observed:end -->", "")
+        self.write_docs(docs)
+        proc, payload = self.cli_json("validate")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("status.observed_block", self.codes(payload, "error"))
+
+    def test_verification_evidence_section_is_required(self):
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status().replace(
+            "## Verification Evidence", "## Something Else"
+        )
+        self.write_docs(docs)
+        proc, payload = self.cli_json("validate")
+        self.assertEqual(proc.returncode, 1)
+        messages = " ".join(f["message"] for f in self.errors(payload))
+        self.assertIn("Verification Evidence", messages)
+
+    def test_release_phase_requires_verification_evidence(self):
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status(phase="Released")
+        self.write_docs(docs)
+        proc, payload = self.cli_json("validate")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("status.release_evidence", self.codes(payload, "error"))
+
+    def test_release_phase_accepts_recorded_evidence(self):
+        (self.repo / "README.md").write_text("fixture\n", encoding="utf-8")
+        sha = self.commit_all("chore: fixture")
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status(
+            phase="Released",
+            commit="-",
+            verification=[
+                "- **Verification:** commit `%s` — full suite green — evidence `README.md`" % sha
+            ],
+        )
+        self.write_docs(docs)
+        proc, payload = self.cli_json("validate")
+        self.assertEqual(proc.returncode, 0, payload)
+
+    def test_published_work_item_requires_verification_evidence(self):
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status(
+            work=["- [Published] v0.1.0 released — `CHANGELOG.md`"]
+        )
+        self.write_docs(docs)
+        proc, payload = self.cli_json("validate")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("status.release_evidence", self.codes(payload, "error"))
+
+    def test_update_refuses_a_release_phase_without_evidence(self):
+        self.write_docs()
+        self.commit_all("docs: fixture")
+        proc = self.cli("update", "--phase", "Released")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("verification evidence", proc.stderr.lower())
+        self.assertNotIn("Released", self.read("PROJECT_STATUS.md"))
+
+    def test_update_allows_a_release_phase_with_evidence(self):
+        (self.repo / "README.md").write_text("fixture\n", encoding="utf-8")
+        sha = self.commit_all("chore: fixture")
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status(
+            verification=[
+                "- **Verification:** commit `%s` — suite green — evidence `README.md`" % sha
+            ]
+        )
+        self.write_docs(docs)
+        proc = self.cli("update", "--phase", "Released")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("Released", self.read("PROJECT_STATUS.md"))
+
+    def test_verification_entry_needs_a_commit_and_an_artefact(self):
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status(
+            verification=["- **Verification:** it works, honest"]
+        )
+        self.write_docs(docs)
+        proc, payload = self.cli_json("validate")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("status.verification.commit", self.codes(payload, "error"))
+        self.assertIn("status.verification.evidence", self.codes(payload, "error"))
+
+    def test_verification_evidence_path_must_exist(self):
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status(
+            verification=[
+                "- **Verification:** commit `%s` — checked — evidence `docs/absent.json`" % ("a" * 40)
+            ]
+        )
+        self.write_docs(docs)
+        proc, payload = self.cli_json("validate")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("status.verification.evidence_missing", self.codes(payload, "error"))
+
+    def test_verification_commit_must_exist_in_the_repository(self):
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status(
+            verification=[
+                "- **Verification:** commit `deadbeefdeadbeefdeadbeefdeadbeefdeadbeef` — checked — "
+                "evidence `README.md`"
+            ]
+        )
+        self.write_docs(docs)
+        (self.repo / "README.md").write_text("fixture\n", encoding="utf-8")
+        proc, payload = self.cli_json("check")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("status.verification_commit_unknown", self.codes(payload, "error"))
+
+
+class FilesystemSafetyTests(RepoCase):
+    """P2: nested repositories, worktrees, symlinks, and write boundaries."""
+
+    def test_symlinked_document_is_not_replaced(self):
+        self.write_docs()
+        self.commit_all("docs: fixture")
+        target = self.repo / "PROJECT_STATUS.md"
+        real = self.repo / "real-status.md"
+        original = target.read_text(encoding="utf-8")
+        real.write_text(original, encoding="utf-8")
+        target.unlink()
+        os.symlink("real-status.md", str(target))
+
+        proc = self.cli("update")
+        self.assertEqual(proc.returncode, 4)
+        self.assertIn("symbolic link", proc.stderr.lower())
+        self.assertTrue(os.path.islink(str(target)), "the link must survive")
+        self.assertEqual(real.read_text(encoding="utf-8"), original)
+
+    def test_symlinked_document_blocks_init(self):
+        real = self.repo / "elsewhere.md"
+        real.write_text("# Project Status\n", encoding="utf-8")
+        os.symlink(str(real), str(self.repo / "PROJECT_STATUS.md"))
+
+        proc = self.cli("init")
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertTrue(os.path.islink(str(self.repo / "PROJECT_STATUS.md")))
+        self.assertEqual(real.read_text(encoding="utf-8"), "# Project Status\n")
+
+    def test_documents_symlinked_into_another_directory_are_not_written_through(self):
+        outside = Path(self._tmp) / "outside"
+        outside.mkdir()
+        content = valid_project_status()
+        (outside / "status.md").write_text(content, encoding="utf-8")
+        os.symlink(str(outside / "status.md"), str(self.repo / "PROJECT_STATUS.md"))
+        proc = self.cli("update")
+        self.assertEqual(proc.returncode, 4)
+        self.assertEqual((outside / "status.md").read_text(encoding="utf-8"), content)
+
+    def test_guard_rejects_a_target_outside_the_project(self):
+        prodoc = load_prodoc()
+        outside = Path(self._tmp) / "elsewhere"
+        outside.mkdir()
+        with self.assertRaises(prodoc.ProdocError) as caught:
+            prodoc.guard_write_target(outside / "PROJECT_STATUS.md", self.repo)
+        self.assertEqual(caught.exception.exit_code, 4)
+
+    def test_guard_allows_a_normal_target(self):
+        prodoc = load_prodoc()
+        allowed = prodoc.guard_write_target(self.repo / "PROJECT_STATUS.md", self.repo)
+        self.assertEqual(allowed, self.repo / "PROJECT_STATUS.md")
+
+    def test_nested_repository_is_not_reached_into(self):
+        """An inner repository must not read or write the outer project's docs."""
+        self.write_docs()
+        self.commit_all("docs: outer fixture")
+        outer_before = self.read("PROJECT_STATUS.md")
+        inner = self.repo / "vendor" / "inner"
+        inner.mkdir(parents=True)
+        self.git_in(inner, "init", "-q")
+        self.git_in(inner, "config", "user.email", "t@e.invalid")
+        self.git_in(inner, "config", "user.name", "T")
+
+        proc, payload = self.cli_json("status", cwd=inner)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(payload["info"]["repo"], str(inner))
+        self.assertNotIn("repo.worktree_root", self.codes(payload, "info"))
+        self.assertFalse(payload["info"]["documents"]["PROJECT_STATUS.md"]["present"])
+
+        proc = self.cli("init", cwd=inner)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        for doc in CANONICAL_DOCS:
+            self.assertTrue((inner / doc).is_file(), doc)
+        self.assertEqual(self.read("PROJECT_STATUS.md"), outer_before, "outer docs must be untouched")
+
+    def test_linked_worktree_is_used_without_touching_the_main_checkout(self):
+        self.write_docs()
+        self.commit_all("docs: fixture")
+        main_before = self.read("PROJECT_STATUS.md")
+        worktree = Path(self._tmp) / "wt"
+        self.git("worktree", "add", "-q", str(worktree), "-b", "wt-branch")
+
+        proc, payload = self.cli_json("status", cwd=worktree)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(payload["info"]["repo"], str(worktree))
+        self.assertFalse(payload["info"]["git"]["detached"])
+
+        proc = self.cli("update", cwd=worktree)
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("wt-branch", (worktree / "PROJECT_STATUS.md").read_text(encoding="utf-8"))
+        self.assertEqual(self.read("PROJECT_STATUS.md"), main_before, "main checkout must be untouched")
+
+    def test_commands_do_not_create_files_outside_the_project(self):
+        outside = Path(self._tmp) / "watch"
+        outside.mkdir()
+        (outside / "marker").write_text("x", encoding="utf-8")
+        before = sorted(str(p.relative_to(outside)) for p in outside.rglob("*"))
+
+        self.write_docs()
+        for args in (("init",), ("validate",), ("status",), ("check",), ("update",), ("update", "--dry-run")):
+            self.cli(*args)
+        after = sorted(str(p.relative_to(outside)) for p in outside.rglob("*"))
+        self.assertEqual(before, after)
+
+    def test_repo_flag_elsewhere_does_not_write_into_the_cwd(self):
+        elsewhere = Path(self._tmp) / "target"
+        elsewhere.mkdir()
+        self.git_in(elsewhere, "init", "-q")
+        self.assertEqual(self.cli("init", "--repo", str(elsewhere)).returncode, 0)
+        for doc in CANONICAL_DOCS:
+            self.assertTrue((elsewhere / doc).is_file(), doc)
+            self.assertFalse((self.repo / doc).exists(), doc)
+
+    def test_concurrent_change_between_checks_is_refused(self):
+        """The pre-replace re-check must catch a change made during the write.
+
+        `os.fsync` runs after the temporary file is written and before the second
+        hash check, so interposing on it lands a concurrent write exactly inside
+        the window the re-check exists to close.
+        """
+        prodoc = load_prodoc()
+        target = self.repo / "PROJECT_STATUS.md"
+        target.write_text("original\n", encoding="utf-8")
+        expected = prodoc.sha256_text("original\n")
+
+        real_fsync = os.fsync
+        calls = {"n": 0}
+
+        def interposing_fsync(fd):
+            calls["n"] += 1
+            target.write_text("sneaked in\n", encoding="utf-8")
+            return real_fsync(fd)
+
+        os.fsync = interposing_fsync
+        try:
+            with self.assertRaises(prodoc.ProdocError) as caught:
+                prodoc.write_atomic(target, "ours\n", expected_sha=expected)
+        finally:
+            os.fsync = real_fsync
+        self.assertEqual(caught.exception.exit_code, 4)
+        self.assertEqual(calls["n"], 1, "the concurrent write landed inside the window")
+        self.assertEqual(target.read_text(encoding="utf-8"), "sneaked in\n")
+        leftovers = [p.name for p in self.repo.iterdir() if p.name.startswith(".prodoc-")]
+        self.assertEqual(leftovers, [], "the temporary file must be cleaned up")
+
+    def test_write_is_atomic_and_leaves_no_temporary_file(self):
+        prodoc = load_prodoc()
+        target = self.repo / "PROJECT_STATUS.md"
+        target.write_text("original\n", encoding="utf-8")
+        prodoc.write_atomic(target, "replacement\n", expected_sha=prodoc.sha256_text("original\n"))
+        self.assertEqual(target.read_text(encoding="utf-8"), "replacement\n")
+        leftovers = [p.name for p in self.repo.iterdir() if p.name.startswith(".prodoc-")]
+        self.assertEqual(leftovers, [])
 
 
 class InterfaceTests(RepoCase):
@@ -598,7 +1067,7 @@ class NonGitDirectoryTests(RepoCase):
         self.assertEqual(proc.returncode, 0, payload)
         self.assertIn("log.no_git", self.codes(payload, "info"))
         _proc, payload = self.cli_json("update")
-        self.assertEqual(payload["info"]["facts"]["branch"], "-")
+        self.assertEqual(payload["info"]["observed"]["observed branch"], "-")
 
 
 if __name__ == "__main__":
