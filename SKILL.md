@@ -195,10 +195,11 @@ Full policy: [references/security.md](references/security.md).
 
 ## Gotchas
 
-- A freshly initialized project fails `prodoc validate` on purpose: template
-  placeholders (`<!-- prodoc:todo: ... -->`) are missing information, and
-  `validate` reports them until a human fills them in. Delete the marker with the
-  content.
+- A freshly initialized project fails `prodoc validate` on purpose: the bundled
+  templates carry unfilled `prodoc:todo` placeholder markers, which `validate`
+  reports until a human replaces each one with real content. Write that marker name
+  without the surrounding comment punctuation, for the reason in the last gotcha
+  below.
 - `PROJECT_STATUS.md` has one machine-maintained region between
   `<!-- prodoc:observed:start -->` and `<!-- prodoc:observed:end -->`. Hand-edit
   everything else; `prodoc update` refuses to run without those markers. Documents
