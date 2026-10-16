@@ -52,7 +52,7 @@ documented local edit. No vendor SDKs, no forks, no marketplace packages.
 | Test suite | 157 total, 156 passed, 0 failed, 0 errored, 1 skipped (the opt-in official-validator test) |
 | Document gates | 3/3 (`skill-spec`, `documents-validate`, `documents-check`) |
 | Official Agent Skills validator (`agentskills validate`) | `Valid skill`, exit 0 |
-| Functional scenarios in disposable repositories | 39/39 |
+| Functional scenarios in disposable repositories (`python3 tests/rc1_functional.py`) | 39/39 |
 | Credential scan (three canonical documents, plus all tracked files) | Clean |
 | Bandit static analysis of `scripts/` | 0 high, 0 medium, 2 low (the `subprocess`-without-`shell=True` pair) |
 | Dependency manifests | None — standard library only |

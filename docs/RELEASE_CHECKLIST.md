@@ -21,7 +21,7 @@ Checked for the release candidate on **2026-10-15**. Evidence lives in
 - [x] End-to-end scenarios pass in disposable repositories: initialization,
       validation, status update, decision append, history tampering, release gate,
       nested repositories, worktrees, symlinks, dry runs, JSON output, exit codes
-      (39/39).
+      (39/39). Reproduce with `python3 tests/rc1_functional.py`.
 - [x] Every functional requirement in `PRODUCT_REQUIREMENTS.md` is covered by a
       test, or is explicitly listed as untested with a reason (`Windows`,
       activation in uninstalled clients).
