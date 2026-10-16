@@ -253,6 +253,19 @@ def git_branch(root):
     return None, True
 
 
+def is_shallow(root):
+    """True when history is truncated, so older commits are simply absent.
+
+    A commit that cannot be found in a shallow clone has not been shown to be
+    unknown; the local copy just does not carry the history. CI checkouts are
+    shallow by default, so this distinction matters.
+    """
+    if root is None:
+        return False
+    rc, out, _ = git(["rev-parse", "--is-shallow-repository"], cwd=root)
+    return rc == 0 and out.strip() == "true"
+
+
 def redact_url(url):
     """Strip credentials from a remote URL before reporting it."""
     return re.sub(r"://([^/@\s]+)@", "://<redacted>@", url)
@@ -1374,6 +1387,18 @@ def cmd_check(args, ctx):
     #    history (amend, rebase, filter-branch) can also rewrite this comparison's
     #    baseline, and the CLI cannot detect that.
     root = git_root(repo)
+    shallow = is_shallow(root)
+    if shallow:
+        findings.append(
+            Finding(
+                "git.shallow",
+                "shallow clone: history is truncated, so recorded commits cannot be confirmed to exist "
+                "or not. Fetch full history (git fetch --unshallow) to check them; this is reported "
+                "rather than treated as failure",
+                "info",
+            )
+        )
+        info["checks"].append("shallow-history-notice")
     if root is not None and (root / "DECISION_LOG.md").is_file():
         rc, committed, _ = git(["show", "HEAD:DECISION_LOG.md"], cwd=root)
         if rc == 0:
@@ -1479,7 +1504,17 @@ def cmd_check(args, ctx):
             commit = observed.get("observed commit") or observed.get("commit") or ""
             if commit and commit != "-" and root is not None:
                 rc, _, _ = git(["rev-parse", "--verify", "%s^{commit}" % commit], cwd=root)
-                if rc != 0:
+                if rc != 0 and shallow:
+                    findings.append(
+                        Finding(
+                            "status.commit_unavailable",
+                            "recorded commit %s is not present in this shallow clone; it is not shown to be "
+                            "unknown, the local history is truncated" % commit[:7],
+                            "warning",
+                            "PROJECT_STATUS.md",
+                        )
+                    )
+                elif rc != 0:
                     findings.append(
                         Finding(
                             "status.commit_unknown",
@@ -1516,7 +1551,19 @@ def cmd_check(args, ctx):
             if not entry["commit"] or root is None:
                 continue
             rc, _, _ = git(["rev-parse", "--verify", "%s^{commit}" % entry["commit"]], cwd=root)
-            if rc != 0:
+            if rc != 0 and shallow:
+                findings.append(
+                    Finding(
+                        "status.verification_commit_unavailable",
+                        "verification evidence cites commit %s, which is not present in this shallow clone; "
+                        "the local history is truncated, so this is unconfirmed rather than wrong"
+                        % redact(entry["commit"], 7),
+                        "warning",
+                        "PROJECT_STATUS.md",
+                        entry["line"],
+                    )
+                )
+            elif rc != 0:
                 findings.append(
                     Finding(
                         "status.verification_commit_unknown",

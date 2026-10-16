@@ -23,6 +23,7 @@ from support import (  # noqa: E402
     REPO_ROOT as ROOT,
     RepoCase,
     load_prodoc,
+    run_git,
     valid_decision_log,
     valid_docs,
     valid_product_requirements,
@@ -928,6 +929,52 @@ class FilesystemSafetyTests(RepoCase):
         for doc in CANONICAL_DOCS:
             self.assertTrue((elsewhere / doc).is_file(), doc)
             self.assertFalse((self.repo / doc).exists(), doc)
+
+    def test_shallow_clone_does_not_accuse_truncated_history(self):
+        """CI checkouts are shallow. An absent commit is unconfirmed, not wrong.
+
+        Regression for the first real CI run, where `prodoc check` failed on a
+        default `actions/checkout` clone because a cited commit was simply not
+        fetched.
+        """
+        (self.repo / "README.md").write_text("fixture\n", encoding="utf-8")
+        old_sha = self.commit_all("chore: first")
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status(
+            verification=[
+                "- **Verification:** commit `%s` — earlier run — evidence `README.md`" % old_sha
+            ]
+        )
+        self.write_docs(docs)
+        self.commit_all("docs: cite an earlier commit")
+
+        shallow = Path(self._tmp) / "shallow"
+        run_git(["clone", "-q", "--depth", "1", self.repo.as_uri(), str(shallow)],
+                Path(self._tmp), self.env)
+        self.assertTrue(
+            run_git(["rev-parse", "--is-shallow-repository"], shallow, self.env).stdout.strip() == "true"
+        )
+
+        proc, payload = self.cli_json("check", cwd=shallow)
+        self.assertEqual(proc.returncode, 0, payload)
+        self.assertNotIn("status.verification_commit_unknown", self.codes(payload, "error"))
+        self.assertIn("git.shallow", self.codes(payload, "info"))
+        self.assertIn("status.verification_commit_unavailable", self.codes(payload, "warning"))
+
+    def test_full_clone_still_rejects_a_genuinely_unknown_commit(self):
+        """The shallow allowance must not weaken the check on full history."""
+        docs = valid_docs()
+        docs["PROJECT_STATUS.md"] = valid_project_status(
+            verification=[
+                "- **Verification:** commit `deadbeefdeadbeefdeadbeefdeadbeefdeadbeef` — claimed — "
+                "evidence `README.md`"
+            ]
+        )
+        self.write_docs(docs)
+        (self.repo / "README.md").write_text("fixture\n", encoding="utf-8")
+        proc, payload = self.cli_json("check")
+        self.assertEqual(proc.returncode, 1)
+        self.assertIn("status.verification_commit_unknown", self.codes(payload, "error"))
 
     def test_concurrent_change_between_checks_is_refused(self):
         """The pre-replace re-check must catch a change made during the write.

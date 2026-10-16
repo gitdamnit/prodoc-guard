@@ -47,6 +47,16 @@ on CPython 3.12.3 only; Windows is implemented but `Not run`.
 - The portable install path `.agents/skills/prodoc-guard/`, shared by the
   verified clients, plus per-client alternatives and optional local adapters.
 
+### Fixed (found by the first real CI run)
+
+- **Shallow clones were accused of citing non-existent commits.** `prodoc check`
+  treated "commit not in the local history" as "commit does not exist", so it
+  failed on a default `actions/checkout` clone whose history is truncated to one
+  commit. An absent commit in a shallow clone is now reported as *unconfirmed*
+  (exit 0, warning plus an info line explaining the truncation), and the check
+  still fails on genuinely unknown commits in a full clone. The bundled workflow
+  also fetches full history so the real checks run in CI.
+
 ### Fixed (independent audit, commit f1dc266)
 
 - **P1 Decision history integrity.** `prodoc check` compared decision ID sets, so

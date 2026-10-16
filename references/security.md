@@ -156,7 +156,7 @@ Remote operations are the highest-consequence action available here.
 | Detached HEAD | Record `detached-head`; do not invent a branch or create one |
 | Read-only checkout | `init`/`update` exit 4; produce a patch or hand the content to the user |
 | No Git available | `validate` still works; `status`/`check` skip history-dependent checks and say so |
-| Shallow or partial clone | `git log` depth is not evidence; do not infer history |
+| Shallow or partial clone | A recorded commit that is absent locally is reported as unconfirmed, never as non-existent: exit 0 with a warning naming each one, plus an info line saying history is truncated. Fetch full history to check them for real |
 | Auth failure on push | Report the failure verbatim; do not retry with escalating privileges |
 | Untracked repository | Nothing to compare against; append-only checks are skipped, not assumed |
 

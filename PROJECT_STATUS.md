@@ -9,10 +9,10 @@ In Progress
 <!-- Machine-maintained by `prodoc update`. Do not hand-edit. -->
 <!-- prodoc:observed:start -->
 <!-- Observed from Git metadata only, by `prodoc update`. This block is not evidence that the implementation or its tests are correct; record that under `## Verification Evidence`. -->
-- **Observed branch:** audit/corrections-p1-p2
-- **Observed commit:** 07e6f43338d7045728a7d0a3db2ea2aecd71b8c6
+- **Observed branch:** main
+- **Observed commit:** 9b8b72571c6b4018c8db4e6e1686c34772df59a0
 - **Observed working tree:** dirty
-- **Observed at:** 2026-10-16T01:36:54Z
+- **Observed at:** 2026-10-16T02:18:03Z
 <!-- prodoc:observed:end -->
 
 ## Verification Evidence
@@ -63,7 +63,7 @@ No client-side activation has been verified. No client has been launched, so no
 
 | Suite | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| cli, skill-spec (unit + integration, disposable Git repositories) | `python3 tests/run_tests.py` | Pass (157, 1 skipped) | `docs/test-results.json`, `docs/TEST_REPORT.md` |
+| cli, skill-spec (unit + integration, disposable Git repositories) | `python3 tests/run_tests.py` | Pass (159, 1 skipped) | `docs/test-results.json`, `docs/TEST_REPORT.md` |
 | Agent Skills specification | `python3 scripts/check_skill.py .` | Pass (0 errors) | `docs/test-results.json` (gate `skill-spec`) |
 | Canonical documents | `python3 scripts/prodoc validate` | Pass | `docs/test-results.json` (gate `documents-validate`) |
 | Consistency and secret scan | `python3 scripts/prodoc check` | Pass | `docs/test-results.json` (gate `documents-check`) |

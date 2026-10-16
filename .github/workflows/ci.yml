@@ -24,6 +24,11 @@ jobs:
         python: ["3.8", "3.12"]
     steps:
       - uses: actions/checkout@v4
+        with:
+          # History-depth checks compare against HEAD and older commits. A default
+          # shallow checkout truncates that history, which downgrades the checks to
+          # "unconfirmed" rather than running them.
+          fetch-depth: 0
 
       - uses: actions/setup-python@v5
         with:
@@ -50,6 +55,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # History-depth checks compare against HEAD and older commits. A default
+          # shallow checkout truncates that history, which downgrades the checks to
+          # "unconfirmed" rather than running them.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -61,6 +71,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # History-depth checks compare against HEAD and older commits. A default
+          # shallow checkout truncates that history, which downgrades the checks to
+          # "unconfirmed" rather than running them.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -74,6 +89,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # History-depth checks compare against HEAD and older commits. A default
+          # shallow checkout truncates that history, which downgrades the checks to
+          # "unconfirmed" rather than running them.
+          fetch-depth: 0
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
