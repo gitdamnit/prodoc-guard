@@ -5,13 +5,13 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [0.1.0] — release candidate, 2026-10-15
+## [0.1.0] — 2026-10-15
 
-**Status: release candidate. Not tagged, not published, no public repository
-created.** Nothing in this section is a claim that a GitHub release exists.
+Initial release.
 
-Supported: Git 2.x and CPython 3.8+ on Linux and macOS. The suite has been executed
-on CPython 3.12.3 only; Windows is implemented but `Not run`.
+Supported: Git 2.x and CPython 3.8+ on Linux. The suite runs in CI on CPython 3.8.18
+and 3.12.15, and was developed on 3.12.3. macOS is expected to work but is
+untested. Windows is implemented but `Not run`.
 
 ### Verified compatibility
 
@@ -22,8 +22,8 @@ on CPython 3.12.3 only; Windows is implemented but `Not run`.
   Evidence: `docs/RUNTIME_EVIDENCE.md`.
 - OpenAI Codex, Claude Code, Cursor, GitHub Copilot — specification-conformant
   only; not installed on the machine used for this release and never started.
-- The bundled GitHub Actions workflow has never run (no remote); CI is configured
-  and statically checked, not verified.
+- CI is verified: all five jobs pass on Python 3.8 and 3.12 —
+  https://github.com/gitdamnit/prodoc-guard/actions/runs/38839726677
 
 ### Added
 

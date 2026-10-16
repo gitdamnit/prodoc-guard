@@ -103,13 +103,15 @@ Checked for the release candidate on **2026-10-15**. Evidence lives in
 
 - [x] Working tree clean, apart from one pre-existing untracked file that is not
       ours (`prodoc-guard-review.zip`) and is excluded from every commit.
-- [ ] **Not done, requires authorization:** merge to the default branch.
-- [ ] **Not done, requires authorization:** tag `v0.1.0` and push.
-- [ ] **Not done, requires authorization:** create the public GitHub repository
-      (`gitdamnit/prodoc-guard`) and publish the release.
-- [ ] **Not done:** a real GitHub Actions run on a pushed commit. No remote
-      exists, so CI is configured and statically checked only. Treat CI as
-      **unverified** until a workflow run is recorded.
+- [x] Merged to the default branch: `audit/corrections-p1-p2` fast-forwarded into
+      `main` (no merge commit, history preserved).
+- [x] Public GitHub repository created: <https://github.com/gitdamnit/prodoc-guard>.
+- [x] A real GitHub Actions run completed on a pushed commit: all five jobs green
+      on Python 3.8 and 3.12 —
+      <https://github.com/gitdamnit/prodoc-guard/actions/runs/38839726677>.
+- [ ] **Pending:** tag `v0.1.0` and push it.
+- [ ] **Pending:** publish the GitHub release, then record the release URL, tag and
+      publication date in `PROJECT_STATUS.md`.
 - [x] Nothing was force-pushed, and no history was rewritten beyond an unpushed
       local tip corrected before this candidate was cut.
 

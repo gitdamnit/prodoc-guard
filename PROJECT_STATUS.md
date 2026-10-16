@@ -10,9 +10,9 @@ In Progress
 <!-- prodoc:observed:start -->
 <!-- Observed from Git metadata only, by `prodoc update`. This block is not evidence that the implementation or its tests are correct; record that under `## Verification Evidence`. -->
 - **Observed branch:** main
-- **Observed commit:** 9b8b72571c6b4018c8db4e6e1686c34772df59a0
+- **Observed commit:** f429e56b044e95ec2cc46a6de11282417aedd81f
 - **Observed working tree:** dirty
-- **Observed at:** 2026-10-16T02:18:03Z
+- **Observed at:** 2026-10-16T02:23:27Z
 <!-- prodoc:observed:end -->
 
 ## Verification Evidence
@@ -28,6 +28,9 @@ command writes entries in this section.
 - **Verification:** commit `07e6f43338d7045728a7d0a3db2ea2aecd71b8c6` — release-candidate validation: 157 tests (156 passed, 1 opt-in skip), gates 3/3, functional scenarios 39/39, official validator `Valid skill` — evidence `docs/test-results.json`
 - **Verification:** commit `07e6f43338d7045728a7d0a3db2ea2aecd71b8c6` — OpenCode v2.0.21 discovered, invoked and executed the skill; Gemini CLI 0.56.0 enumerated it — evidence `docs/RUNTIME_EVIDENCE.md`
 - **Verification:** commit `07e6f43338d7045728a7d0a3db2ea2aecd71b8c6` — static analysis clean of high and medium findings; no credentials in any tracked file — evidence `docs/RELEASE_CHECKLIST.md`
+- **Verification:** commit `f429e56b044e95ec2cc46a6de11282417aedd81f` — GitHub Actions green, all five jobs, on CPython 3.8.18 and 3.12.15; 159 tests, 158 passed, 1 skipped — evidence https://github.com/gitdamnit/prodoc-guard/actions/runs/38839726677
+- **Verification:** commit `f429e56b044e95ec2cc46a6de11282417aedd81f` — the README install steps were executed against the public repository: clone, copy into the skills directory, `check_skill.py` PASS, `prodoc init` created the three documents — evidence `README.md`
+- **Verification:** commit `f429e56b044e95ec2cc46a6de11282417aedd81f` — 39/39 disposable-repository scenarios, re-run after the CI fix — evidence `tests/rc1_functional.py`
 
 No client-side activation has been verified. No client has been launched, so no
 `Runtime-tested` claim exists anywhere in this project.
@@ -64,6 +67,7 @@ No client-side activation has been verified. No client has been launched, so no
 | Suite | Command | Result | Evidence |
 | --- | --- | --- | --- |
 | cli, skill-spec (unit + integration, disposable Git repositories) | `python3 tests/run_tests.py` | Pass (159, 1 skipped) | `docs/test-results.json`, `docs/TEST_REPORT.md` |
+| The same suite in GitHub Actions, CPython 3.8.18 and 3.12.15 | `python3 tests/run_tests.py` | Pass (159, 1 skipped) | https://github.com/gitdamnit/prodoc-guard/actions/runs/38839726677 |
 | Agent Skills specification | `python3 scripts/check_skill.py .` | Pass (0 errors) | `docs/test-results.json` (gate `skill-spec`) |
 | Canonical documents | `python3 scripts/prodoc validate` | Pass | `docs/test-results.json` (gate `documents-validate`) |
 | Consistency and secret scan | `python3 scripts/prodoc check` | Pass | `docs/test-results.json` (gate `documents-check`) |
@@ -87,8 +91,9 @@ No client-side activation has been verified. No client has been launched, so no
   failure is misreading the flag. Severity: cosmetic.
 - The Windows path is implemented but untested, so it is listed as `Not run`
   rather than claimed. Severity: unknown until measured.
-- Python 3.8–3.11 are declared and parse-checked but not executed; only 3.12.3 has
-  been run. Severity: unknown until measured.
+- Python 3.9, 3.10 and 3.11 are declared and parse-checked but not executed; 3.8
+  and 3.12 run green in CI. Severity: unknown until measured.
+- macOS is expected to work but is untested. Severity: unknown until measured.
 - Gemini CLI invocation is not independently confirmed: `activate_skill` is
   unavailable in plan mode and the `-y` run's success line is the model's own
   summary. Severity: unverified claim, recorded as such in `docs/RUNTIME_EVIDENCE.md`.

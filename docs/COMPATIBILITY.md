@@ -234,11 +234,12 @@ Therefore:
   describe the wrong system.
 - **The secret scan covers the three canonical documents only.**
 - **Windows** is implemented but `Not run`; treat it as unverified.
-- **Python** is declared as 3.8+; the suite has been executed on CPython 3.12.3
-  only. All modules parse under `ast.parse(feature_version=(3, 8))` and no 3.9+
-  library is used, but 3.8–3.11 have not been executed.
-- **The GitHub Actions workflow has never run.** No remote exists, so CI is
-  configured and statically checked, not verified.
+- **Python**: the declared floor is 3.8 and the suite runs green in CI on CPython
+  3.8.18 and 3.12.15. 3.9, 3.10 and 3.11 have not been executed; all modules parse
+  under `ast.parse(feature_version=(3, 8))` and no 3.9+ library is used.
+- **macOS** is expected to work and is untested.
+- **CI is verified**: all five jobs pass on Python 3.8 and 3.12 —
+  https://github.com/gitdamnit/prodoc-guard/actions/runs/38839726677
 - **`.agents/skills/` is a convention, not a standard path.** It is supported by
   the clients above today; the specification itself does not mandate a location.
 - **Vendor documentation moves.** Re-read the linked page before installing if

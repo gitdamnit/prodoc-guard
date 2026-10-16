@@ -1,7 +1,6 @@
 # ProDoc Guard v0.1.0 — Release Notes
 
-**Status: release candidate. Not tagged, not published. No GitHub release has been
-created.** These notes are a proposal for review, not an announcement.
+Version 0.1.0 of ProDoc Guard, dated 2026-10-15.
 
 ---
 
@@ -49,7 +48,7 @@ documented local edit. No vendor SDKs, no forks, no marketplace packages.
 
 | Check | Result |
 | --- | --- |
-| Test suite | 159 total, 158 passed, 0 failed, 0 errored, 1 skipped (the opt-in official-validator test) |
+| Test suite | 159 total, 158 passed, 0 failed, 0 errored, 1 skipped (the opt-in official-validator test), on CPython 3.8.18 and 3.12.15 in CI |
 | Document gates | 3/3 (`skill-spec`, `documents-validate`, `documents-check`) |
 | Official Agent Skills validator (`agentskills validate`) | `Valid skill`, exit 0 |
 | Functional scenarios in disposable repositories (`python3 tests/rc1_functional.py`) | 39/39 |
@@ -58,6 +57,7 @@ documented local edit. No vendor SDKs, no forks, no marketplace packages.
 | Dependency manifests | None — standard library only |
 | OpenCode v2.0.21 | Runtime-tested: discovery, invocation, CLI execution |
 | Gemini CLI 0.56.0 | Runtime-tested for discovery; invocation not confirmed |
+| GitHub Actions (5 jobs) | Green on Python 3.8.18 and 3.12.15 — https://github.com/gitdamnit/prodoc-guard/actions/runs/38839726677 |
 
 ## Not verified in this release
 
@@ -67,11 +67,11 @@ prevent.
 - **Codex, Claude Code, Cursor and GitHub Copilot were never started.** They are
   not installed on the machine used for this release. Their rows are
   documentation-and-conformance claims only.
-- **The GitHub Actions workflow has never run.** No remote exists. CI is
-  configured and statically checked, not verified.
 - **Windows is implemented but untested.** `Not run`.
-- **Python 3.8–3.11 were not executed.** 3.8 is the declared minimum and every
-  module parses under a 3.8 grammar; only 3.12.3 was run.
+- **Python 3.9, 3.10 and 3.11 were not executed.** 3.8 and 3.12 both run green in
+  CI, so the declared 3.8+ floor is verified and the range in between is not.
+- **macOS was not executed.** Nothing in the tool is platform-specific, but it is
+  untested.
 - **No client can be shown to activate a skill automatically.** Discovery and
   invocation were exercised where possible; a client may still decline to use a
   skill on any given prompt.
