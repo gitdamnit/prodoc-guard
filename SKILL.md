@@ -233,7 +233,8 @@ Full policy: [references/security.md](references/security.md).
 ## Bundled resources
 
 - `scripts/prodoc` — offline CLI: `init`, `validate`, `status`, `check`, `update`
-- `scripts/check_skill.py` — validates a skill directory against the Agent Skills spec
+- `scripts/check_skill.py` — validates a skill directory against the Agent Skills spec;
+  add `--official` to also run the official reference validator (the only network-using option)
 - `templates/` — the three document templates
 - `references/status-rules.md` — status vocabulary, evidence, phase transitions
 - `references/security.md` — safety model for documentation and Git operations

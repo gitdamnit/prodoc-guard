@@ -54,6 +54,37 @@ specification checks, none of which need a client at all.
 | **Live activation verification per client** | **Planned** | n/a | n/a | Recording a real activation run per client, and publishing it in this file, is follow-up work |
 | **Windows** | **Planned** | n/a | n/a | The CLI uses `os.replace` and no POSIX-only process behaviour, but the suite has only been run on Linux |
 
+## Verification performed
+
+Reproducible checks run against this repository. Nothing in this table is a claim
+about any client's behaviour.
+
+| Check | Result |
+| --- | --- |
+| `scripts/check_skill.py .` | Pass — 0 errors |
+| Official `agentskills validate`, from the `skills-ref` reference library | Pass — `Valid skill`, exit 0 (2026-10-15) |
+| Official `agentskills read-properties` | Pass — `name`, `description`, `license`, `compatibility`, `metadata` all parse |
+| Frontmatter keys restricted to specification-defined fields | Pass |
+| `name` matches the directory and `^[a-z0-9]+(-[a-z0-9]+)*$` | Pass |
+| `description` within 1024 characters, written as "what" plus "when to use" | Pass |
+| `compatibility` within 500 characters | Pass |
+| `SKILL.md` under 500 lines with a body under 5000 tokens | Pass |
+| Every bundled-file reference from `SKILL.md` resolves | Pass |
+
+The official reference library
+(<https://github.com/agentskills/agentskills>, published as the `skills-ref`
+package) is used in two ways. `scripts/check_skill.py` runs a locally installed
+copy automatically and never reaches the network to do so. To fetch it when it is
+missing, pass `--official`; that flag is the only code path in this project that
+may use the network.
+
+```bash
+python3 scripts/check_skill.py . --official      # may download skills-ref via uvx
+uvx --from skills-ref agentskills validate .     # or run the reference tool directly
+```
+
+It stays optional: conformance results do not depend on it being installed.
+
 ## The portable install path
 
 Five of the six specification-conformant clients read `.agents/skills/`. That makes it the

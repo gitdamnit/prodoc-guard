@@ -24,6 +24,7 @@ command writes entries in this section.
 - **Verification:** commit `f1dc26668ca4af852c6bf36e0e1c42d5f5b5ce62` — full suite green (100 tests, 0 failures, 3/3 gates) — evidence `docs/test-results.json`
 - **Verification:** commit `f1dc26668ca4af852c6bf36e0e1c42d5f5b5ce62` — `git archive` of HEAD extracted, every file hashing identically to its Git blob, and the extracted copy passed `check_skill.py` and `prodoc validate` — evidence `docs/TEST_REPORT.md`
 - **Verification:** commit `f1dc26668ca4af852c6bf36e0e1c42d5f5b5ce62` — skill directory validated against the Agent Skills specification, 0 errors — evidence `docs/COMPATIBILITY.md`
+- **Verification:** commit `f1dc26668ca4af852c6bf36e0e1c42d5f5b5ce62` — official reference validator (`agentskills validate`) reports "Valid skill", exit 0 — evidence `docs/COMPATIBILITY.md`
 
 No client-side activation has been verified. No client has been launched, so no
 `Runtime-tested` claim exists anywhere in this project.
@@ -47,6 +48,7 @@ No client-side activation has been verified. No client has been launched, so no
 - [Implemented] Separation of observed Git metadata from verified evidence, with a release-state evidence gate — `scripts/prodoc`, `templates/PROJECT_STATUS.md`
 - [Implemented] Write boundaries: symlinked documents and paths outside the project are refused — `scripts/prodoc`
 - [Implemented] Test reports write to an untracked scratch directory by default, with an explicit, non-silent path for refreshing committed evidence — `tests/run_tests.py`
+- [Implemented] Official Agent Skills validation wired in as an opt-in flag, with the probe corrected to the real executable names — `scripts/check_skill.py`
 - [Planned] Publish v0.1.0 to GitHub after the release checklist is green
 - [Planned] Verify the CLI on Windows and record the result here
 - [Planned] Record a live skill activation in at least one client and publish it in the matrix
@@ -55,7 +57,7 @@ No client-side activation has been verified. No client has been launched, so no
 
 | Suite | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| cli, skill-spec (unit + integration, disposable Git repositories) | `python3 tests/run_tests.py` | Pass (148) | `docs/test-results.json`, `docs/TEST_REPORT.md` |
+| cli, skill-spec (unit + integration, disposable Git repositories) | `python3 tests/run_tests.py` | Pass (155) | `docs/test-results.json`, `docs/TEST_REPORT.md` |
 | Agent Skills specification | `python3 scripts/check_skill.py .` | Pass (0 errors) | `docs/test-results.json` (gate `skill-spec`) |
 | Canonical documents | `python3 scripts/prodoc validate` | Pass | `docs/test-results.json` (gate `documents-validate`) |
 | Consistency and secret scan | `python3 scripts/prodoc check` | Pass | `docs/test-results.json` (gate `documents-check`) |

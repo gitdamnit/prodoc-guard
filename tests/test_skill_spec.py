@@ -187,6 +187,108 @@ class CheckSkillScriptTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 3)
 
 
+class OfficialValidatorTests(unittest.TestCase):
+    """The official validator is used when obtainable, and never fetched by default."""
+
+    @classmethod
+    def setUpClass(cls):
+        loader = importlib.machinery.SourceFileLoader("check_skill_mod", str(CHECK_SKILL))
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        cls.check_skill = importlib.util.module_from_spec(spec)
+        loader.exec_module(cls.check_skill)
+
+    def test_default_run_does_not_fetch_anything(self):
+        proc = run([sys.executable, str(CHECK_SKILL), str(REPO_ROOT), "--json"])
+        payload = json.loads(proc.stdout)
+        official = payload["official_validator"]
+        if official.get("available"):
+            self.assertNotIn(
+                "uvx",
+                official.get("command", ""),
+                "a default run must not fetch the validator over the network",
+            )
+        else:
+            self.assertIn("--official", official["reason"])
+
+    def test_no_official_skips_the_probe(self):
+        proc = run([sys.executable, str(CHECK_SKILL), str(REPO_ROOT), "--no-official", "--json"])
+        payload = json.loads(proc.stdout)
+        self.assertFalse(payload["official_validator"]["available"])
+        self.assertIn("skipped", payload["official_validator"]["reason"])
+
+    def test_official_flag_is_documented(self):
+        proc = run([sys.executable, str(CHECK_SKILL), "--help"])
+        self.assertIn("--official", proc.stdout)
+        self.assertIn("network", proc.stdout.lower())
+
+    def test_local_probe_prefers_an_installed_executable(self):
+        tmp = tempfile.mkdtemp(prefix="prodoc-official-")
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        fake = Path(tmp) / "agentskills"
+        fake.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        fake.chmod(0o755)
+        env = dict(os.environ)
+        env["PATH"] = "%s%s%s" % (tmp, os.pathsep, env.get("PATH", ""))
+        proc = subprocess.run(
+            [sys.executable, "-c",
+             "import importlib.machinery,importlib.util,sys;"
+             "l=importlib.machinery.SourceFileLoader('m', %r);"
+             "s=importlib.util.spec_from_loader(l.name,l);m=importlib.util.module_from_spec(s);"
+             "l.exec_module(m);r=m.local_official_command('.');print(r[0] if r else 'NONE')" % str(CHECK_SKILL)],
+            capture_output=True, text=True, env=env,
+        )
+        self.assertEqual(proc.stdout.strip(), "agentskills")
+
+    def test_local_probe_returns_nothing_when_no_validator_exists(self):
+        import importlib.util as _ilu
+
+        if _ilu.find_spec("agentskills") is not None:
+            self.skipTest("the official validator module is importable here")
+        tmp = tempfile.mkdtemp(prefix="prodoc-nopath-")
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        env = dict(os.environ)
+        env["PATH"] = tmp
+        proc = subprocess.run(
+            [sys.executable, "-c",
+             "import importlib.machinery,importlib.util;"
+             "l=importlib.machinery.SourceFileLoader('m', %r);"
+             "s=importlib.util.spec_from_loader(l.name,l);m=importlib.util.module_from_spec(s);"
+             "l.exec_module(m);r=m.local_official_command('.');print('NONE' if r is None else r[0])" % str(CHECK_SKILL)],
+            capture_output=True, text=True, env=env,
+        )
+        self.assertEqual(proc.stdout.strip(), "NONE")
+
+    def test_fetch_command_targets_the_official_package(self):
+        tmp = tempfile.mkdtemp(prefix="prodoc-uvx-")
+        self.addCleanup(shutil.rmtree, tmp, ignore_errors=True)
+        fake = Path(tmp) / "uvx"
+        fake.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        fake.chmod(0o755)
+        env = dict(os.environ)
+        env["PATH"] = "%s%s%s" % (tmp, os.pathsep, env.get("PATH", ""))
+        proc = subprocess.run(
+            [sys.executable, "-c",
+             "import importlib.machinery,importlib.util;"
+             "l=importlib.machinery.SourceFileLoader('m', %r);"
+             "s=importlib.util.spec_from_loader(l.name,l);m=importlib.util.module_from_spec(s);"
+             "l.exec_module(m);r=m.fetch_official_command('.');print(r[0] if r else 'NONE')" % str(CHECK_SKILL)],
+            capture_output=True, text=True, env=env,
+        )
+        self.assertIn("skills-ref", proc.stdout)
+
+    def test_official_validator_accepts_the_repository(self):
+        """Recorded as evidence: run only when a validator is obtainable."""
+        proc = run([sys.executable, str(CHECK_SKILL), str(REPO_ROOT), "--official", "--json"])
+        payload = json.loads(proc.stdout)
+        official = payload["official_validator"]
+        if not official.get("available"):
+            self.skipTest("no official validator obtainable: %s" % official.get("reason"))
+        if "returncode" not in official:
+            self.skipTest("official validator produced no result: %s" % official)
+        self.assertEqual(official["returncode"], 0, official.get("stdout") or official.get("stderr"))
+        self.assertIn("Valid skill", official.get("stdout", ""))
+
+
 class TemplateContractTests(unittest.TestCase):
     """The templates and the validator's section list must not drift apart."""
 

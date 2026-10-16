@@ -13,9 +13,10 @@ Exit codes:
     1  specification errors found
     3  SKILL.md not found or unusable
 
-If the official `skills-ref` validator is installed it is also run and its
-result is reported, but never required: this script is fully offline and uses
-the Python standard library only.
+If an official Agent Skills validator is already installed on this machine it is
+also run and its result is reported, but never required. Pass --official to fetch
+one with uvx when it is missing; that is the only code path here that may use the
+network, and it is never taken by default.
 """
 
 from __future__ import annotations
@@ -41,23 +42,70 @@ def load_prodoc():
     return module
 
 
-def run_skills_ref(skill_dir):
-    """Run the official validator when present. Optional, never required."""
-    executable = shutil.which("skills-ref")
-    if not executable:
-        return {"available": False, "reason": "skills-ref not installed"}
+def local_official_command(skill_dir):
+    """Return (label, argv) for an already-installed official validator, or None.
+
+    Looks only at what is on this machine: the two executable names the reference
+    library has shipped under, then the importable module. Nothing is downloaded,
+    so this preserves the project's no-network guarantee.
+    """
+    for name in ("skills-ref", "agentskills"):
+        executable = shutil.which(name)
+        if executable:
+            return name, [executable, "validate", str(skill_dir)]
     try:
-        proc = subprocess.run(
-            [executable, "validate", str(skill_dir)],
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
+        spec = importlib.util.find_spec("agentskills")
+    except (ImportError, ValueError):  # pragma: no cover - environment dependent
+        spec = None
+    if spec is None:
+        return None
+    return "python -m agentskills", [sys.executable, "-m", "agentskills", "validate", str(skill_dir)]
+
+
+def fetch_official_command(skill_dir):
+    """Return (label, argv) that fetch the official validator with uvx, or None.
+
+    This is the only code path in the project that may reach the network. It runs
+    only when --official is passed, and only when the validator is not already
+    installed.
+    """
+    executable = shutil.which("uvx")
+    if not executable:
+        return None
+    return (
+        "uvx --from skills-ref agentskills",
+        [executable, "--from", "skills-ref", "agentskills", "validate", str(skill_dir)],
+    )
+
+
+def run_official(skill_dir, allow_download=False):
+    """Run the official Agent Skills validator when one is obtainable."""
+    candidate = local_official_command(skill_dir)
+    if candidate is None:
+        if not allow_download:
+            return {
+                "available": False,
+                "reason": (
+                    "official validator not installed locally; pass --official to fetch it "
+                    "with uvx (needs network) or install it yourself"
+                ),
+            }
+        candidate = fetch_official_command(skill_dir)
+        if candidate is None:
+            return {
+                "available": False,
+                "reason": "no local validator, and uvx is not installed to fetch one",
+            }
+    label, argv = candidate
+    try:
+        proc = subprocess.run(argv, capture_output=True, text=True, timeout=300)
     except (OSError, subprocess.SubprocessError) as exc:  # pragma: no cover
-        return {"available": True, "error": str(exc)}
+        return {"available": True, "command": label, "error": str(exc)}
     return {
         "available": True,
+        "command": label,
         "returncode": proc.returncode,
+        "passed": proc.returncode == 0,
         "stdout": proc.stdout.strip(),
         "stderr": proc.stderr.strip(),
     }
@@ -70,6 +118,19 @@ def main(argv=None):
     )
     parser.add_argument("skill_dir", nargs="?", default=".", help="skill directory (default: .)")
     parser.add_argument("--json", action="store_true", help="emit machine-readable JSON")
+    parser.add_argument(
+        "--official",
+        action="store_true",
+        help=(
+            "also run the official Agent Skills validator, fetching it with uvx if it is "
+            "not already installed (this is the only option that may use the network)"
+        ),
+    )
+    parser.add_argument(
+        "--no-official",
+        action="store_true",
+        help="skip the official validator entirely",
+    )
     args = parser.parse_args(argv)
 
     prodoc = load_prodoc()
@@ -110,7 +171,11 @@ def main(argv=None):
         "missing_references": missing,
         "errors": len(errors),
         "ok": not errors,
-        "skills_ref": run_skills_ref(skill_dir),
+        "official_validator": (
+            {"available": False, "reason": "skipped by --no-official"}
+            if args.no_official
+            else run_official(skill_dir, allow_download=args.official)
+        ),
         "spec": "https://agentskills.io/specification",
     }
 
@@ -123,11 +188,15 @@ def main(argv=None):
             print("  %-7s %s" % (finding["severity"].upper(), finding["message"]))
         if not findings:
             print("  OK      no specification issues found")
-        ref = payload["skills_ref"]
+        ref = payload["official_validator"]
         if ref.get("available") and "returncode" in ref:
-            print("  skills-ref: exit %d" % ref["returncode"])
+            print("  official: %s -> exit %d" % (ref.get("command", "?"), ref["returncode"]))
+            if ref["returncode"] != 0:
+                print(ref.get("stdout") or ref.get("stderr") or "")
+        elif ref.get("available"):
+            print("  official: %s -> %s" % (ref.get("command", "?"), ref.get("error", "no result")))
         else:
-            print("  skills-ref: %s (optional)" % ref.get("reason", "not run"))
+            print("  official: not run (%s)" % ref.get("reason", "unknown"))
         print("result: %s" % ("PASS" if payload["ok"] else "FAIL"))
 
     return 1 if errors else 0

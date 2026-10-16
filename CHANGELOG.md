@@ -60,6 +60,12 @@ this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
   that no client was launched, and a test fails any client row claiming
   `Runtime-tested` without a recorded run.
 
+- **Official validation.** `scripts/check_skill.py` probed for an executable named
+  `skills-ref`, which the reference library does not ship; it probes the real names
+  now, and `--official` fetches the validator with
+  `uvx --from skills-ref agentskills` when it is missing. The probe never touches
+  the network unless that flag is passed.
+
 ### Changed
 
 - `prodoc update --json` renames `facts` to `observed`, and its keys to
