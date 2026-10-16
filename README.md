@@ -54,8 +54,31 @@ without evidence fails the build, and a deleted decision record is an error.
 ## Requirements
 
 - **Git** 2.x on `PATH` (the CLI works without a repository, but loses Git checks).
-- **Python 3.8+**. No packages to install; the standard library is enough.
+- **Python 3.8+** — declared minimum. Verified on CPython 3.12.3; every module
+  parses under a 3.8 grammar and no 3.9+ library is used, but 3.8–3.11 have not
+  been executed. No packages to install; the standard library is enough.
 - No network access, no account, no model API key, no hosted service.
+
+One exception, opt-in: `scripts/check_skill.py --official` downloads the official
+Agent Skills validator with `uvx` when it is not already installed. It is never
+used by default, and nothing else in the project opens a socket.
+
+## Verified compatibility
+
+Honest summary of what has actually been executed (details and transcripts in
+[docs/COMPATIBILITY.md](docs/COMPATIBILITY.md) and
+[docs/RUNTIME_EVIDENCE.md](docs/RUNTIME_EVIDENCE.md)):
+
+| Client | Status |
+| --- | --- |
+| OpenCode v2.0.21 | **Runtime-tested** — discovered, invoked, CLI executed |
+| Gemini CLI 0.56.0 | **Runtime-tested for discovery**; invocation not independently confirmed |
+| OpenAI Codex, Claude Code, Cursor, GitHub Copilot | Specification-conformant only — not installed here, never started |
+| ChatGPT web | Unsupported for a standalone skill folder (plugins only) |
+| No agent (CLI, scripts, CI) | Runtime-tested by the test suite |
+
+The bundled GitHub Actions workflow has **never run** — there is no remote — so CI
+is configured and statically checked, not verified.
 
 ## Install
 

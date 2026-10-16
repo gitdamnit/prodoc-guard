@@ -277,7 +277,18 @@ class OfficialValidatorTests(unittest.TestCase):
         self.assertIn("skills-ref", proc.stdout)
 
     def test_official_validator_accepts_the_repository(self):
-        """Recorded as evidence: run only when a validator is obtainable."""
+        """Recorded as evidence. Opt in, because fetching the validator is slow.
+
+        Default runs stay fast and offline: this is skipped unless a validator is
+        already installed locally, or PRODOC_TEST_OFFICIAL=1 asks for the fetch.
+        """
+        loader = importlib.machinery.SourceFileLoader("check_skill_probe", str(CHECK_SKILL))
+        spec = importlib.util.spec_from_loader(loader.name, loader)
+        probe = importlib.util.module_from_spec(spec)
+        loader.exec_module(probe)
+        local = probe.local_official_command(REPO_ROOT)
+        if local is None and os.environ.get("PRODOC_TEST_OFFICIAL") != "1":
+            self.skipTest("no local validator and PRODOC_TEST_OFFICIAL is not set")
         proc = run([sys.executable, str(CHECK_SKILL), str(REPO_ROOT), "--official", "--json"])
         payload = json.loads(proc.stdout)
         official = payload["official_validator"]
@@ -429,30 +440,57 @@ class VendorNeutralityTests(unittest.TestCase):
         for state in self.STATES:
             self.assertIn("**%s**" % state.lower(), lowered, "status label %r missing" % state)
 
-    def test_no_client_is_labelled_runtime_tested(self):
-        """A client row may only claim a runtime test if one is recorded."""
+    def test_every_runtime_tested_claim_cites_recorded_evidence(self):
+        """A runtime claim must point at a run a reviewer can read."""
         text = (REPO_ROOT / "docs" / "COMPATIBILITY.md").read_text(encoding="utf-8")
         matrix = text.split("## Compatibility matrix", 1)[1].split("\n## ", 1)[0]
         rows = [line for line in matrix.splitlines() if line.startswith("| **")]
-        offenders = [
+        claimants = [
             line
             for line in rows
             if "**runtime-tested**" in line.lower() and "not by a client" not in line
         ]
-        for line in offenders:
+        self.assertTrue(claimants, "expected at least one runtime-tested client row")
+        for line in claimants:
             self.assertIn(
-                "docs/runtime",
-                line,
-                "row claims a runtime test without pointing at recorded evidence: %s" % line[:120],
+                "docs/runtime_evidence.md",
+                line.lower(),
+                "row claims a runtime test without citing recorded evidence: %s" % line[:120],
+            )
+
+    def test_runtime_evidence_file_covers_every_runtime_tested_client(self):
+        evidence = (REPO_ROOT / "docs" / "RUNTIME_EVIDENCE.md").read_text(encoding="utf-8")
+        matrix = (REPO_ROOT / "docs" / "COMPATIBILITY.md").read_text(encoding="utf-8")
+        rows = [l for l in matrix.split("## Compatibility matrix", 1)[1].split("\n## ", 1)[0].splitlines()
+                if l.startswith("| **") and "**runtime-tested**" in l.lower() and "not by a client" not in l]
+        for line in rows:
+            client = line.split("|")[1].strip().strip("*")
+            self.assertIn(client, evidence, "no runtime evidence recorded for %s" % client)
+        for client in ("OpenAI Codex", "Claude Code", "Cursor", "GitHub Copilot"):
+            self.assertNotIn(
+                "| **%s** | **Runtime-tested**" % client,
+                matrix,
+                "%s is not installed here and must not be labelled runtime-tested" % client,
             )
 
     def test_compatibility_matrix_separates_conformance_from_runtime(self):
+        """Conformance is documentation plus measurement; runtime means executed."""
         text = (REPO_ROOT / "docs" / "COMPATIBILITY.md").read_text(encoding="utf-8")
         lowered = text.lower()
         self.assertIn("specification-conformant", lowered)
         self.assertIn("runtime-tested", lowered)
-        self.assertIn("no client was launched", lowered)
+        self.assertIn("not installed on the machine", lowered)
         self.assertNotIn("**Verified**", text)
+
+    def test_skill_and_cli_versions_agree(self):
+        skill = SKILL_MD.read_text(encoding="utf-8")
+        declared = re.search(r"^\s+version:\s*[\"']?([0-9]+\.[0-9]+\.[0-9]+)", skill, re.M)
+        self.assertIsNotNone(declared, "SKILL.md metadata has no version")
+        cli = (REPO_ROOT / "scripts" / "prodoc").read_text(encoding="utf-8")
+        implemented = re.search(r'^VERSION\s*=\s*"([^"]+)"', cli, re.M)
+        self.assertIsNotNone(implemented, "scripts/prodoc has no VERSION")
+        self.assertEqual(declared.group(1), implemented.group(1),
+                         "SKILL.md metadata version and scripts/prodoc VERSION disagree")
 
     def test_portable_install_path_is_documented(self):
         for relative in ("README.md", "docs/COMPATIBILITY.md"):

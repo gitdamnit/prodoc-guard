@@ -26,26 +26,30 @@ Two different kinds of claim are kept strictly apart:
 | **Unsupported** | Known not to accept a standalone skill folder on that surface. | The vendor's own documentation. A different distribution path is required. |
 | **Planned** | No claim today. | Nothing. Listed so the gap is visible rather than implied. |
 
-**No client is labelled `Runtime-tested`, because no client was launched.**
-Skill discovery and invocation were not exercised in OpenCode, Codex, Claude Code,
-Cursor, GitHub Copilot, Gemini CLI, ChatGPT, or anything else in this environment.
-`Specification-conformant` therefore means exactly one thing: the documented rules
-were followed and the artifact was measured against them. It is *not* a claim that
-the skill appears in a picker, activates on a prompt, or runs. What *was* executed
-is recorded in [TEST_REPORT.md](TEST_REPORT.md) — the CLI, the CI path and the
-specification checks, none of which need a client at all.
+`Specification-conformant` means exactly one thing: the documented rules were
+followed and the artifact was measured against them. It is *not* a claim that the
+skill appears in a picker, activates on a prompt, or runs.
+
+`Runtime-tested` is only used where discovery or invocation was actually executed,
+and every such row cites the run in
+[RUNTIME_EVIDENCE.md](RUNTIME_EVIDENCE.md). Two clients have been exercised:
+**OpenCode** (discovery, invocation and CLI execution) and **Gemini CLI**
+(discovery; invocation attempted and not independently confirmed). Codex, Claude
+Code, Cursor and GitHub Copilot are not installed on the machine used for this
+release, so they remain `Specification-conformant` only. What *was* executed
+without any client is recorded in [TEST_REPORT.md](TEST_REPORT.md).
 
 ## Compatibility matrix
 
 | Client | Status | Documented discovery paths | Invocation | What was checked |
 | --- | --- | --- | --- | --- |
-| **No agent at all** (manual, scripts, CI/CD) | **Runtime-tested** (by the suite, not by a client) | n/a — operates on the working tree | `prodoc init\|validate\|status\|check\|update` | Exercised: 91 automated tests, all three gates green — `TEST_REPORT.md` |
-| **OpenCode** | **Specification-conformant** | `.opencode/skills/`, `.claude/skills/`, `.agents/skills/`; globals `~/.config/opencode/skills/`, `~/.claude/skills/`, `~/.agents/skills/` | `skill` tool, or `/name` when declared in `metadata` | Paths and frontmatter rules read from the OpenCode Agent Skills page; conformance measured by `check_skill.py` |
+| **No agent at all** (manual, scripts, CI/CD) | **Runtime-tested** (by the suite, not by a client) | n/a — operates on the working tree | `prodoc init\|validate\|status\|check\|update` | Exercised: 157 automated tests, all three gates green — `TEST_REPORT.md` |
+| **OpenCode** | **Runtime-tested** (discovery, invocation, CLI) — `docs/RUNTIME_EVIDENCE.md` | `.opencode/skills/`, `.claude/skills/`, `.agents/skills/`; globals `~/.config/opencode/skills/`, `~/.claude/skills/`, `~/.agents/skills/` | `skill` tool, or `/name` when declared in `metadata` | Paths and frontmatter rules read from the OpenCode Agent Skills page; conformance measured by `check_skill.py` |
 | **OpenAI Codex** (CLI, IDE) | **Specification-conformant** | `$CWD/.agents/skills` up to `$REPO_ROOT/.agents/skills`, `~/.agents/skills`, `/etc/codex/skills` | `$prodoc-guard`, `/skills`, or implicit match | Paths read from *Build skills*; `name`/`description` requirement met; `agents/openai.yaml` supplied as an optional adapter |
 | **Claude Code** | **Specification-conformant** | `.claude/skills/` (project, nested, enterprise, `--add-dir`); `~/.claude/skills/`; plugin `<plugin>/skills/` | `/prodoc-guard` (directory or `name` sets the command) | Paths read from *Extend Claude with skills*. Claude Code accepts every frontmatter field, and requires **spec-only fields** for claude.ai upload / Skills API / `package_skill.py` packaging — this skill uses spec-only fields, so it does not hard-error there |
 | **Cursor** | **Specification-conformant** | `.agents/skills/`, `.cursor/skills/`; `~/.agents/skills/`, `~/.cursor/skills/`; also reads `.claude/skills/`, `.codex/skills/` and their user-level equivalents | `/` in Agent chat, or a Custom Mode | Paths and rules read from *Agent Skills*; `name` matches the parent folder as required |
 | **GitHub Copilot** (VS Code, CLI, app, cloud agent) | **Specification-conformant** | `.github/skills/`, `.claude/skills/`, `.agents/skills/`; `~/.copilot/skills/`, `~/.claude/skills/`, `~/.agents/skills/` | `/prodoc-guard` slash command, or automatic by description | Paths read from *Use Agent Skills in VS Code*; constraints met — `name` ≤64 chars, lowercase/digits/hyphens, matches the parent directory, no namespace prefix; `description` ≤1024 |
-| **Gemini CLI** | **Specification-conformant** | Workspace `.agents/skills/` or `.gemini/skills/`; user `~/.agents/skills/` or `~/.gemini/skills/` | `activate_skill` tool with an explicit consent prompt | Paths and the tier/precedence model read from *Agent Skills*. `.agents/skills/` is the portable alias. See the caveat below |
+| **Gemini CLI** | **Runtime-tested** (discovery; invocation unconfirmed) — `docs/RUNTIME_EVIDENCE.md` | Workspace `.agents/skills/` or `.gemini/skills/`; user `~/.agents/skills/` or `~/.gemini/skills/` | `activate_skill` tool with an explicit consent prompt | Paths and the tier/precedence model read from *Agent Skills*. `.agents/skills/` is the portable alias. See the caveat below |
 | **Any other Agent Skills client** | **Unverified** | Client-specific; most support `.agents/skills/<name>/SKILL.md` | Client-specific | The format is standard and the skill conforms, but no per-client rule was read. Clients listed on the ecosystem showcase but untested here include Junie, Goose, Amp, Letta, OpenHands, Mux, Roo Code, Factory, Kiro, TRAE, Snowflake Cortex Code, and others |
 | **ChatGPT desktop app** | **Unverified** | Not documented for externally authored folders | `@` mention | The app has a Skills view for skills created in your projects, but its documentation does not state where an external skill folder is placed, so no path is claimed |
 | **ChatGPT web** (Chat, Work) | **Unsupported** | Plugin-bundled skills only | Plugin installation | Standalone skill folders are not an installable unit there. See below |
@@ -62,7 +66,7 @@ about any client's behaviour.
 | Check | Result |
 | --- | --- |
 | `scripts/check_skill.py .` | Pass — 0 errors |
-| Official `agentskills validate`, from the `skills-ref` reference library | Pass — `Valid skill`, exit 0 (2026-10-15) |
+| Official `agentskills validate`, from the `skills-ref` reference library | Pass — `Valid skill`, exit 0 (2026-10-15), `agentskills` 0.1.1 |
 | Official `agentskills read-properties` | Pass — `name`, `description`, `license`, `compatibility`, `metadata` all parse |
 | Frontmatter keys restricted to specification-defined fields | Pass |
 | `name` matches the directory and `^[a-z0-9]+(-[a-z0-9]+)*$` | Pass |
@@ -84,6 +88,19 @@ uvx --from skills-ref agentskills validate .     # or run the reference tool dir
 ```
 
 It stays optional: conformance results do not depend on it being installed.
+
+## Runtime-tested integrations
+
+Executed, not inferred. Full commands and observed output:
+[RUNTIME_EVIDENCE.md](RUNTIME_EVIDENCE.md).
+
+| Client | Discovery | Invocation | CLI execution | Notes |
+| --- | --- | --- | --- | --- |
+| **OpenCode** v2.0.21 | Yes — offered from `.agents/skills/` in a fresh project | Yes — the client reported `Skill "prodoc-guard"` | Yes — ran `prodoc status` and reported the real branch, commit and phase | Installed in a disposable project; `~/.config/opencode` unchanged |
+| **Gemini CLI** 0.56.0 | Yes — `gemini skills list` enumerated `prodoc-guard` with its description | Attempted — `activate_skill` is unavailable in plan mode; a `-y` run reported success but did not expose the tool result | Not attempted | Workspace must be trusted (`--skip-trust` for a session); `skills list` still requires auth |
+
+Everything else in the matrix is a documentation-and-conformance claim only. In
+particular, no Codex, Claude Code, Cursor or GitHub Copilot process was started.
 
 ## The portable install path
 
@@ -217,10 +234,21 @@ Therefore:
   describe the wrong system.
 - **The secret scan covers the three canonical documents only.**
 - **Windows** is implemented but `Not run`; treat it as unverified.
+- **Python** is declared as 3.8+; the suite has been executed on CPython 3.12.3
+  only. All modules parse under `ast.parse(feature_version=(3, 8))` and no 3.9+
+  library is used, but 3.8–3.11 have not been executed.
+- **The GitHub Actions workflow has never run.** No remote exists, so CI is
+  configured and statically checked, not verified.
 - **`.agents/skills/` is a convention, not a standard path.** It is supported by
   the clients above today; the specification itself does not mandate a location.
 - **Vendor documentation moves.** Re-read the linked page before installing if
   behaviour matters. This file records what was true on 2026-10-15.
+- **The official validator mishandles a relative `.` path.** `agentskills validate .`
+  reports `Directory name '' must match skill name 'prodoc-guard'`, while the same
+  directory passes as `agentskills validate /abs/path` or `agentskills validate prodoc-guard`.
+  This is a quirk of the validator resolving the parent directory name, not a
+  property of the skill. `scripts/check_skill.py` resolves paths before delegating,
+  so it is unaffected.
 
 ## Reporting a compatibility problem
 

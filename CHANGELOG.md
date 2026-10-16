@@ -5,7 +5,25 @@ All notable changes to this project are documented here.
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and
 this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.1.0] — release candidate, 2026-10-15
+
+**Status: release candidate. Not tagged, not published, no public repository
+created.** Nothing in this section is a claim that a GitHub release exists.
+
+Supported: Git 2.x and CPython 3.8+ on Linux and macOS. The suite has been executed
+on CPython 3.12.3 only; Windows is implemented but `Not run`.
+
+### Verified compatibility
+
+- **OpenCode v2.0.21** — runtime-tested: skill discovered from `.agents/skills/`,
+  invoked, and its CLI executed. Evidence: `docs/RUNTIME_EVIDENCE.md`.
+- **Gemini CLI 0.56.0** — runtime-tested for discovery: `gemini skills list`
+  enumerated the skill. Invocation attempted and not independently confirmed.
+  Evidence: `docs/RUNTIME_EVIDENCE.md`.
+- OpenAI Codex, Claude Code, Cursor, GitHub Copilot — specification-conformant
+  only; not installed on the machine used for this release and never started.
+- The bundled GitHub Actions workflow has never run (no remote); CI is configured
+  and statically checked, not verified.
 
 ### Added
 

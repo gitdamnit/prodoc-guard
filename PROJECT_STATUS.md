@@ -49,7 +49,10 @@ No client-side activation has been verified. No client has been launched, so no
 - [Implemented] Write boundaries: symlinked documents and paths outside the project are refused — `scripts/prodoc`
 - [Implemented] Test reports write to an untracked scratch directory by default, with an explicit, non-silent path for refreshing committed evidence — `tests/run_tests.py`
 - [Implemented] Official Agent Skills validation wired in as an opt-in flag, with the probe corrected to the real executable names — `scripts/check_skill.py`
-- [Planned] Publish v0.1.0 to GitHub after the release checklist is green
+- [Tested] Release candidate validated end to end: 157 tests, 3/3 gates, official validator, and 39/39 disposable-repository scenarios — `docs/TEST_REPORT.md`
+- [Implemented] Runtime compatibility evidence for the clients that could actually be executed — `docs/RUNTIME_EVIDENCE.md`
+- [Implemented] Release notes and a completed release checklist for v0.1.0 — `docs/RELEASE_NOTES_v0.1.0.md`, `docs/RELEASE_CHECKLIST.md`
+- [Planned] Publish v0.1.0 (requires explicit authorization; no remote exists)
 - [Planned] Verify the CLI on Windows and record the result here
 - [Planned] Record a live skill activation in at least one client and publish it in the matrix
 
@@ -57,7 +60,7 @@ No client-side activation has been verified. No client has been launched, so no
 
 | Suite | Command | Result | Evidence |
 | --- | --- | --- | --- |
-| cli, skill-spec (unit + integration, disposable Git repositories) | `python3 tests/run_tests.py` | Pass (155) | `docs/test-results.json`, `docs/TEST_REPORT.md` |
+| cli, skill-spec (unit + integration, disposable Git repositories) | `python3 tests/run_tests.py` | Pass (157, 1 skipped) | `docs/test-results.json`, `docs/TEST_REPORT.md` |
 | Agent Skills specification | `python3 scripts/check_skill.py .` | Pass (0 errors) | `docs/test-results.json` (gate `skill-spec`) |
 | Canonical documents | `python3 scripts/prodoc validate` | Pass | `docs/test-results.json` (gate `documents-validate`) |
 | Consistency and secret scan | `python3 scripts/prodoc check` | Pass | `docs/test-results.json` (gate `documents-check`) |
@@ -81,6 +84,14 @@ No client-side activation has been verified. No client has been launched, so no
   failure is misreading the flag. Severity: cosmetic.
 - The Windows path is implemented but untested, so it is listed as `Not run`
   rather than claimed. Severity: unknown until measured.
+- Python 3.8–3.11 are declared and parse-checked but not executed; only 3.12.3 has
+  been run. Severity: unknown until measured.
+- Gemini CLI invocation is not independently confirmed: `activate_skill` is
+  unavailable in plan mode and the `-y` run's success line is the model's own
+  summary. Severity: unverified claim, recorded as such in `docs/RUNTIME_EVIDENCE.md`.
+- Bandit reports 2 low-severity findings in `scripts/check_skill.py` (B404 import of
+  `subprocess`, B603 call without `shell=True`). Both are the safe pattern, with no
+  shell interpolation and an allowlisted argv. Severity: accepted, no High/Medium.
 
 ## Blockers
 
